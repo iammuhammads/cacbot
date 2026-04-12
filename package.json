@@ -1,0 +1,40 @@
+{
+  "name": "whatsapp-cac-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "WhatsApp-native AI agent for CAC registration automation",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "dev:worker": "tsx watch src/worker.ts",
+    "dev:twilio:test-webhook": "tsx scripts/twilio-simulate-inbound.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "start:worker": "node dist/worker.js",
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.88.0",
+    "@clerk/backend": "^3.2.8",
+    "@clerk/fastify": "^3.1.10",
+    "@fastify/formbody": "^8.0.2",
+    "@fastify/multipart": "^9.0.3",
+    "animate.css": "^4.1.1",
+    "bullmq": "^5.73.4",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "imapflow": "^1.0.181",
+    "mailparser": "^3.7.2",
+    "openai": "^4.87.3",
+    "playwright": "^1.51.1",
+    "redis": "^4.7.0",
+    "twilio": "^5.13.1",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
