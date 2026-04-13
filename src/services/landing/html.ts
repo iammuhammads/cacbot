@@ -525,26 +525,24 @@ export function renderLandingPage(): string {
       </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
+    <script
+      async
+      crossorigin="anonymous"
+      data-clerk-publishable-key="${env.CLERK_PUBLISHABLE_KEY || ''}"
+      src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+      type="text/javascript"
+    ></script>
     <script>
-      const CLERK_PUBLISHABLE_KEY = "${env.CLERK_PUBLISHABLE_KEY || ''}";
-      
       async function initClerkOnLanding() {
-        if (!CLERK_PUBLISHABLE_KEY) {
-          console.error("Clerk Error: Publishable Key is missing from the environment.");
-          return;
-        }
-        
-        const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
         try {
-          await clerk.load();
+          await window.Clerk.load();
           
           const triggers = document.querySelectorAll('.auth-trigger');
           triggers.forEach(el => {
             el.addEventListener('click', (e) => {
-              if (!clerk.user) {
+              if (!window.Clerk.user) {
                 e.preventDefault();
-                clerk.openSignUp({
+                window.Clerk.openSignUp({
                    afterSignUpUrl: '/dashboard',
                    afterSignInUrl: '/dashboard'
                 });
@@ -552,15 +550,12 @@ export function renderLandingPage(): string {
             });
           });
         } catch (e) {
-          console.error("Clerk instance failed to load on landing:", e);
+          console.error("Landing Clerk Load Failed:", e);
         }
       }
 
-      if (window.Clerk) {
-        initClerkOnLanding();
-      } else {
-        window.addEventListener('load', initClerkOnLanding);
-      }
+      if (window.Clerk) initClerkOnLanding();
+      else window.addEventListener('load', initClerkOnLanding);
 
       const form = document.getElementById('lead-form');
       form.addEventListener('submit', async (e) => {
@@ -591,5 +586,5 @@ export function renderLandingPage(): string {
       });
     </script>
   </body>
-</html>`;
+</html>\`;
 }

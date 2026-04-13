@@ -74,21 +74,19 @@ function renderAuthGate(): string {
         <div class="status">INITIALIZING SECURE SESSION...</div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
+    <script
+      async
+      crossorigin="anonymous"
+      data-clerk-publishable-key="${env.CLERK_PUBLISHABLE_KEY}"
+      src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+      type="text/javascript"
+    ></script>
     <script>
-        const CLERK_PUBLISHABLE_KEY = "${env.CLERK_PUBLISHABLE_KEY || ''}";
-        
         async function startClerk() {
-            if (!CLERK_PUBLISHABLE_KEY) {
-                console.error("Clerk Error: Publishable Key is empty. Check your .env file.");
-                return;
-            }
-
-            const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
             try {
-                await clerk.load();
-                if (!clerk.user) {
-                    clerk.openSignUp({
+                await window.Clerk.load();
+                if (!window.Clerk.user) {
+                    window.Clerk.openSignUp({
                         afterSignUpUrl: '/dashboard',
                         afterSignInUrl: '/dashboard'
                     });

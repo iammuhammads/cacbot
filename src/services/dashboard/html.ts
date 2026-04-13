@@ -232,16 +232,17 @@ function layout(title: string, body: string): string {
         .stats-card { grid-column: span 6; }
       }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
+    <script
+      async
+      crossorigin="anonymous"
+      data-clerk-publishable-key="${env.CLERK_PUBLISHABLE_KEY}"
+      src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+      type="text/javascript"
+    ></script>
     <script>
-      const CLERK_PUBLISHABLE_KEY = "${env.CLERK_PUBLISHABLE_KEY || ''}";
-      
       async function startDashboardClerk() {
-        if (!CLERK_PUBLISHABLE_KEY) return;
-        const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
         try {
-          await clerk.load();
-          window.clerk = clerk; // Global for the sign-out button
+          await window.Clerk.load();
         } catch (e) {
           console.error("Dashboard Clerk Load Failed:", e);
         }
@@ -275,8 +276,8 @@ function layout(title: string, body: string): string {
       </div>
       <script>
         document.getElementById('sign-out-btn')?.addEventListener('click', async () => {
-          if (window.clerk) {
-             await window.clerk.signOut();
+          if (window.Clerk) {
+             await window.Clerk.signOut();
              window.location.href = '/';
           }
         });
