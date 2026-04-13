@@ -234,12 +234,21 @@ function layout(title: string, body: string): string {
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
     <script>
-      const publishableKey = "${env.CLERK_PUBLISHABLE_KEY}";
-      const clerk = new Clerk(publishableKey);
-      async function initClerk() {
-        await clerk.load();
+      const CLERK_PUBLISHABLE_KEY = "${env.CLERK_PUBLISHABLE_KEY || ''}";
+      
+      async function startDashboardClerk() {
+        if (!CLERK_PUBLISHABLE_KEY) return;
+        const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
+        try {
+          await clerk.load();
+          window.clerk = clerk; // Global for the sign-out button
+        } catch (e) {
+          console.error("Dashboard Clerk Load Failed:", e);
+        }
       }
-      initClerk();
+
+      if (window.Clerk) startDashboardClerk();
+      else window.addEventListener('load', startDashboardClerk);
     </script>
   </head>
   <body>
@@ -266,8 +275,10 @@ function layout(title: string, body: string): string {
       </div>
       <script>
         document.getElementById('sign-out-btn')?.addEventListener('click', async () => {
-          await clerk.signOut();
-          window.location.href = '/';
+          if (window.clerk) {
+             await window.clerk.signOut();
+             window.location.href = '/';
+          }
         });
       </script>
     </aside>

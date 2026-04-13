@@ -527,27 +527,40 @@ export function renderLandingPage(): string {
 
     <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
     <script>
-      const publishableKey = "${env.CLERK_PUBLISHABLE_KEY}";
-      const clerk = new Clerk(publishableKey);
-
+      const CLERK_PUBLISHABLE_KEY = "${env.CLERK_PUBLISHABLE_KEY || ''}";
+      
       async function initClerkOnLanding() {
-        await clerk.load();
+        if (!CLERK_PUBLISHABLE_KEY) {
+          console.error("Clerk Error: Publishable Key is missing from the environment.");
+          return;
+        }
         
-        const triggers = document.querySelectorAll('.auth-trigger');
-        triggers.forEach(el => {
-          el.addEventListener('click', (e) => {
-            if (!clerk.user) {
-              e.preventDefault();
-              clerk.openSignUp({
-                 afterSignUpUrl: '/dashboard',
-                 afterSignInUrl: '/dashboard'
-              });
-            }
+        const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
+        try {
+          await clerk.load();
+          
+          const triggers = document.querySelectorAll('.auth-trigger');
+          triggers.forEach(el => {
+            el.addEventListener('click', (e) => {
+              if (!clerk.user) {
+                e.preventDefault();
+                clerk.openSignUp({
+                   afterSignUpUrl: '/dashboard',
+                   afterSignInUrl: '/dashboard'
+                });
+              }
+            });
           });
-        });
+        } catch (e) {
+          console.error("Clerk instance failed to load on landing:", e);
+        }
       }
 
-      initClerkOnLanding();
+      if (window.Clerk) {
+        initClerkOnLanding();
+      } else {
+        window.addEventListener('load', initClerkOnLanding);
+      }
 
       const form = document.getElementById('lead-form');
       form.addEventListener('submit', async (e) => {

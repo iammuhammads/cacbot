@@ -76,28 +76,35 @@ function renderAuthGate(): string {
 
     <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
     <script>
-        const publishableKey = "${env.CLERK_PUBLISHABLE_KEY}";
-        const clerk = new Clerk(publishableKey);
+        const CLERK_PUBLISHABLE_KEY = "${env.CLERK_PUBLISHABLE_KEY || ''}";
+        
+        async function startClerk() {
+            if (!CLERK_PUBLISHABLE_KEY) {
+                console.error("Clerk Error: Publishable Key is empty. Check your .env file.");
+                return;
+            }
 
-        async function initAuth() {
-            await clerk.load();
-            if (!clerk.user) {
-                // Open Sign Up modal by default for better conversion
-                clerk.openSignUp({
-                    afterSignUpUrl: '/dashboard',
-                    afterSignInUrl: '/dashboard'
-                });
-
-                // Detect modal close to redirect back home (optional)
-                document.addEventListener('keydown', (e) => {
-                  if (e.key === 'Escape') window.location.href = '/';
-                });
-            } else {
-                window.location.href = '/dashboard';
+            const clerk = new Clerk(CLERK_PUBLISHABLE_KEY);
+            try {
+                await clerk.load();
+                if (!clerk.user) {
+                    clerk.openSignUp({
+                        afterSignUpUrl: '/dashboard',
+                        afterSignInUrl: '/dashboard'
+                    });
+                } else {
+                    window.location.href = '/dashboard';
+                }
+            } catch (err) {
+                console.error("Clerk instance failed to load:", err);
             }
         }
 
-        initAuth();
+        if (window.Clerk) {
+           startClerk();
+        } else {
+           window.addEventListener('load', startClerk);
+        }
     </script>
 </body>
 </html>`;
