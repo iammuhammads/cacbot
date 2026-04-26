@@ -1088,10 +1088,10 @@ function layout(title: string, body: string, activePage: string = "overview"): s
 export function renderDashboardIndex(sessions: SessionRecord[]): string {
   const totals = {
     total: sessions.length,
-    active: sessions.filter((s) => !["COMPLETED", "ERROR"].includes(s.state)).length,
+    intake: sessions.filter((s) => !["COMPLETED", "ERROR", "AWAITING_PAYMENT", "READY_FOR_SUBMISSION", "SUBMITTING", "PAYMENT_CONFIRMED"].includes(s.state)).length,
+    ready: sessions.filter((s) => s.state === "READY_FOR_SUBMISSION").length,
     awaiting: sessions.filter((s) => s.state === "AWAITING_PAYMENT").length,
     errors: sessions.filter((s) => s.state === "ERROR").length,
-    completed: sessions.filter((s) => s.state === "COMPLETED").length,
   };
 
   const rows = sessions
@@ -1179,18 +1179,18 @@ export function renderDashboardIndex(sessions: SessionRecord[]): string {
       <div class="stats-grid">
         <div class="stat-card fade-in fade-in-delay-1">
           <div class="stat-icon" style="background: var(--accent-subtle);">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
           </div>
-          <div class="stat-label">Total Sessions</div>
-          <div class="stat-value">${totals.total}</div>
+          <div class="stat-label">Clients in Intake</div>
+          <div class="stat-value">${totals.intake}</div>
         </div>
 
         <div class="stat-card fade-in fade-in-delay-2">
-          <div class="stat-icon" style="background: var(--success-bg);">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+          <div class="stat-icon" style="background: var(--info-bg);">
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
           </div>
-          <div class="stat-label">Active Now</div>
-          <div class="stat-value" style="color: var(--success);">${totals.active}</div>
+          <div class="stat-label">Ready for Submission</div>
+          <div class="stat-value" style="color: var(--info);">${totals.ready}</div>
         </div>
 
         <div class="stat-card fade-in fade-in-delay-3">
@@ -1205,7 +1205,7 @@ export function renderDashboardIndex(sessions: SessionRecord[]): string {
           <div class="stat-icon" style="background: var(--danger-bg);">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
           </div>
-          <div class="stat-label">Errors</div>
+          <div class="stat-label">System Errors</div>
           <div class="stat-value" style="color: var(--danger);">${totals.errors}</div>
         </div>
       </div>
