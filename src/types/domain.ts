@@ -1,5 +1,14 @@
 export type WhatsAppProviderName = "twilio" | "360dialog" | "mock";
 
+export type WorkflowType = 
+  | "NEW_REGISTRATION"
+  | "CHANGE_NAME"
+  | "CHANGE_DIRECTORS"
+  | "CHANGE_SHARES"
+  | "CHANGE_ADDRESS"
+  | "CHANGE_ACTIVITY"
+  | "ANNUAL_RETURNS";
+
 export type RegistrationType =
   | "BUSINESS_NAME"
   | "COMPANY"
@@ -13,7 +22,10 @@ export type SessionState =
   | "SUBMITTING"
   | "AWAITING_PAYMENT"
   | "PAYMENT_CONFIRMED"
+  | "PENDING_APPROVAL"
+  | "QUERIED"
   | "COMPLETED"
+  | "AWAITING_OTP"
   | "ERROR"
   | "MANUAL_REVIEW";
 
@@ -66,9 +78,28 @@ export interface PortalProgress {
   referenceNumber?: string;
   lastCheckpoint?: string;
   certificatePath?: string;
+  pendingManualOtp?: {
+    code: string;
+    receivedAt: string;
+    confirmed: boolean;
+  };
 }
 
+export interface PostIncorporationData {
+  existingRcNumber?: string;
+  existingName?: string;
+  changeDetails?: string;
+  /** CHANGE_NAME: at least 2 proposed replacement names (CAC requires alternatives). */
+  proposedNames?: string[];
+  /** CHANGE_DIRECTORS: full director records for people being added. */
+  newDirectors?: PersonRecord[];
+  /** CHANGE_DIRECTORS: full names of directors being removed from the register. */
+  removedDirectorNames?: string[];
+}
+
+
 export interface RegistrationData {
+  workflowType?: WorkflowType;
   registrationType?: RegistrationType;
   registrationSubtype?: string;
   clientName?: string;
@@ -83,6 +114,7 @@ export interface RegistrationData {
   proprietors: PersonRecord[];
   directors: PersonRecord[];
   trustees: PersonRecord[];
+  postIncData?: PostIncorporationData;
   documents: UploadedDocument[];
   payment?: PaymentDetails;
   portal?: PortalProgress;
@@ -153,18 +185,21 @@ export interface IntakeDecision {
 }
 
 export interface AutomationOutcome {
-  kind: "AWAITING_PAYMENT" | "COMPLETED";
+  kind: "AWAITING_PAYMENT" | "PENDING_APPROVAL" | "QUERIED" | "COMPLETED";
   payment?: PaymentDetails;
   portal?: PortalProgress;
   summary: string;
+  auditTrail?: AuditEntry[];
 }
 
 export interface AgentCommand {
-  command: "PAID" | "STATUS" | "OVERRIDE" | "RESUME" | "HELP";
+  command: "PAID" | "STATUS" | "OVERRIDE" | "RESUME" | "HELP" | "LIST" | "CANCEL" | "NOTE";
   sessionId?: string;
+  extra?: string;
 }
 
 export const EMPTY_REGISTRATION_DATA: RegistrationData = {
+  workflowType: "NEW_REGISTRATION",
   businessNameOptions: [],
   proprietors: [],
   directors: [],

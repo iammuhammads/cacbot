@@ -51,11 +51,14 @@ export class ImapOtpResolver implements OtpResolver {
       await client.mailboxOpen(this.env.CAC_IMAP_MAILBOX);
 
       while (Date.now() < deadline) {
-        // Fetch only the most recent 10 messages from the end of the mailbox
-        const range = { from: -10 };
-        console.log(`[IMAP] Fetching most recent 10 messages to check for OTP...`);
-        
-        for await (const message of client.fetch(range, { source: true, envelope: true })) {
+        // Fetch the most recent messages from the mailbox
+        const status = await client.status(this.env.CAC_IMAP_MAILBOX, { messages: true });
+        const total = status.messages ?? 0;
+        const startSeq = Math.max(1, total - 9);
+        const range = `${startSeq}:*`;
+        console.log(`[IMAP] Fetching messages ${range} (${total} total) to check for OTP...`);
+
+        for await (const message of client.fetch(range, { source: true })) {
           // Only check messages received after our 'sinceDate'
           const internalDate = message.internalDate;
           if (internalDate && internalDate < sinceDate) {
@@ -65,11 +68,11 @@ export class ImapOtpResolver implements OtpResolver {
           if (!message.source) continue;
 
           const parsed = await simpleParser(message.source);
-          const from = parsed.from?.text ?? "";
+          const fromText = parsed.from?.text ?? "";
           const subject = parsed.subject ?? "";
-          
+
           // Check if it matches our filters
-          const matchesFrom = !this.env.CAC_IMAP_FROM_FILTER || from.toLowerCase().includes(this.env.CAC_IMAP_FROM_FILTER.toLowerCase());
+          const matchesFrom = !this.env.CAC_IMAP_FROM_FILTER || fromText.toLowerCase().includes(this.env.CAC_IMAP_FROM_FILTER.toLowerCase());
           const matchesSubject = !this.env.CAC_IMAP_SUBJECT_FILTER || subject.toLowerCase().includes(this.env.CAC_IMAP_SUBJECT_FILTER.toLowerCase());
 
           if (matchesFrom && matchesSubject) {

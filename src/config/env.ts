@@ -37,6 +37,9 @@ const envSchema = z.object({
   D360_API_KEY: z.string().optional(),
   D360_PHONE_NUMBER_ID: z.string().optional(),
   D360_API_BASE: z.string().default("https://waba-v2.360dialog.io"),
+  // Supabase/service configuration (preferred keys: SUPABASE_URL + SUPABASE_SERVICE_KEY)
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_KEY: z.string().optional(),
   CAC_PORTAL_URL: z.string().url().default("https://icrp.cac.gov.ng"),
   CAC_EMAIL: z.string().optional(),
   CAC_PASSWORD: z.string().optional(),
@@ -52,8 +55,14 @@ const envSchema = z.object({
   CAC_IMAP_FROM_FILTER: z.string().optional(),
   CAC_IMAP_SUBJECT_FILTER: z.string().default("OTP"),
   CAC_OTP_TIMEOUT_MS: z.coerce.number().int().positive().default(120000),
+  CREDENTIALS_ENCRYPTION_KEY: z.string().optional(),
+  SENTRY_DSN: z.string().optional(),
+  SECRETS_BACKEND: z.enum(["env", "vault"]).default("env"),
+  VAULT_ADDR: z.string().url().optional(),
+  VAULT_TOKEN: z.string().optional(),
   LOCAL_STORAGE_ROOT: z.string().default("storage"),
-  ARTIFACTS_ROOT: z.string().default("artifacts")
+  ARTIFACTS_ROOT: z.string().default("artifacts"),
+  CAC_DEMO_NETWORK: z.enum(["offline", "fail-fast", "online"]).optional()
 });
 
 const parsed = envSchema.parse(process.env);
@@ -65,6 +74,8 @@ export const env = {
     .map((value) => value.trim())
     .filter(Boolean),
   whatsappProvider: parsed.WHATSAPP_PROVIDER as WhatsAppProviderName
+  ,
+  secretsBackend: parsed.SECRETS_BACKEND
 };
 
 export type Env = typeof env;

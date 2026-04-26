@@ -1,4 +1,4 @@
-import type { PersonRecord, RegistrationData, RegistrationType } from "../types/domain.js";
+import type { PersonRecord, RegistrationData, RegistrationType, WorkflowType } from "../types/domain.js";
 
 const nigeriaPhonePattern = /^(\+234|0)\d{10}$/;
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -80,6 +80,11 @@ function validateRegistrationSpecifics(
 }
 
 export function validateRegistrationData(data: RegistrationData): ValidationResult {
+  // Route to Post-Incorporation validation when applicable
+  if (data.workflowType && data.workflowType !== "NEW_REGISTRATION") {
+    return validatePostIncData(data);
+  }
+
   const missingFields: string[] = [];
   const issues: string[] = [];
 
@@ -128,6 +133,90 @@ export function validateRegistrationData(data: RegistrationData): ValidationResu
 
   if (data.registrationType) {
     validateRegistrationSpecifics(data, data.registrationType, missingFields, issues);
+  }
+
+  return {
+    ready: missingFields.length === 0 && issues.length === 0,
+    missingFields,
+    issues
+  };
+}
+
+/**
+ * Validate post-incorporation workflows (CHANGE_*, ANNUAL_RETURNS)
+ */
+export function validatePostIncData(data: RegistrationData): ValidationResult {
+  const missingFields: string[] = [];
+  const issues: string[] = [];
+
+  const post = data.postIncData ?? {};
+
+  if (!post.existingRcNumber) {
+    missingFields.push("postIncData.existingRcNumber");
+  }
+  if (!post.existingName) {
+    missingFields.push("postIncData.existingName");
+  }
+
+  switch (data.workflowType) {
+    case "CHANGE_DIRECTORS":
+      if (!post.newDirectors || post.newDirectors.length === 0) {
+        missingFields.push("postIncData.newDirectors");
+      } else {
+        post.newDirectors.forEach((person, idx) =>
+          validatePerson(person, `postIncData.newDirectors[${idx}]`, missingFields, issues)
+        );
+      }
+      if (!post.removedDirectorNames || post.removedDirectorNames.length === 0) {
+        missingFields.push("postIncData.removedDirectorNames");
+      }
+      if (!hasDocumentKind(data, "resolution") && !hasDocumentKind(data, "board")) {
+        missingFields.push("documents.board_resolution");
+      }
+      break;
+
+    case "CHANGE_NAME":
+      if (!post.proposedNames || post.proposedNames.length < 2) {
+        missingFields.push("postIncData.proposedNames (at least 2)");
+      }
+      if (!hasDocumentKind(data, "resolution") && !hasDocumentKind(data, "board")) {
+        missingFields.push("documents.board_resolution");
+      }
+      break;
+
+    case "CHANGE_SHARES":
+      if (!data.shareCapitalNaira) {
+        missingFields.push("shareCapitalNaira");
+      }
+      if (!hasDocumentKind(data, "resolution") && !hasDocumentKind(data, "board")) {
+        missingFields.push("documents.board_resolution");
+      }
+      break;
+
+    case "CHANGE_ADDRESS":
+      if (!data.address?.line1) {
+        missingFields.push("address.line1");
+      }
+      if (!data.address?.state) {
+        missingFields.push("address.state");
+      }
+      break;
+
+    case "CHANGE_ACTIVITY":
+      if (!data.businessActivity && !data.specificBusinessActivity) {
+        missingFields.push("businessActivity");
+      }
+      break;
+
+    case "ANNUAL_RETURNS":
+      if (!hasDocumentKind(data, "annual") && !hasDocumentKind(data, "returns") && !hasDocumentKind(data, "financial")) {
+        missingFields.push("documents.annual_returns_or_financial_statements");
+      }
+      break;
+
+    default:
+      // Unknown post-inc workflow: require at least RC number and existing name
+      break;
   }
 
   return {

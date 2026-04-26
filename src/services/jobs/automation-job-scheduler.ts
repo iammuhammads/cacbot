@@ -15,7 +15,7 @@ export interface AutomationJobHandlers {
 }
 
 export interface AutomationJobScheduler {
-  enqueueSubmission(sessionId: string): Promise<void>;
+  enqueueSubmission(sessionId: string, priority?: number): Promise<void>;
   enqueueResumePayment(sessionId: string): Promise<void>;
   close?(): Promise<void>;
 }
@@ -29,7 +29,7 @@ export class InlineAutomationJobScheduler implements AutomationJobScheduler {
 
   constructor(private readonly handlers: AutomationJobHandlers) {}
 
-  async enqueueSubmission(sessionId: string): Promise<void> {
+  async enqueueSubmission(sessionId: string, priority = 10): Promise<void> {
     void this.queue.enqueue(`submit-${sessionId}`, async () => {
       await this.handlers.submitRegistration(sessionId);
     }).catch((error) => {
@@ -47,7 +47,7 @@ export class InlineAutomationJobScheduler implements AutomationJobScheduler {
 }
 
 export class NoopAutomationJobScheduler implements AutomationJobScheduler {
-  async enqueueSubmission(): Promise<void> {
+  async enqueueSubmission(_sessionId: string, _priority = 10): Promise<void> {
     throw new Error("No job scheduler is configured in this process.");
   }
 
@@ -82,12 +82,13 @@ export class BullMqAutomationJobScheduler implements AutomationJobScheduler {
     });
   }
 
-  async enqueueSubmission(sessionId: string): Promise<void> {
+  async enqueueSubmission(sessionId: string, priority = 10): Promise<void> {
     await this.queue.add(
       "submit_registration",
       { sessionId },
       {
-        jobId: jobId("submit_registration", sessionId)
+        jobId: jobId("submit_registration", sessionId),
+        priority
       }
     );
   }
@@ -97,7 +98,8 @@ export class BullMqAutomationJobScheduler implements AutomationJobScheduler {
       "resume_payment",
       { sessionId },
       {
-        jobId: jobId("resume_payment", sessionId)
+        jobId: jobId("resume_payment", sessionId),
+        priority: 1 // High priority - push to front of queue
       }
     );
   }

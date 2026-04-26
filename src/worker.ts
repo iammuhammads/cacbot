@@ -1,61 +1,79 @@
 import { env } from "./config/env.js";
 import { assertRuntimeConfig } from "./config/runtime-checks.js";
-import { InMemorySessionStore, RedisSessionStore } from "./repositories/session-store.js";
+import { SupabaseSessionStore } from "./repositories/session-store.js";
 import { RegistrationIntakeService } from "./services/ai/intake-service.js";
 import { CacAutomationService } from "./services/cac/cac-automation.js";
 import { createOtpResolver } from "./services/cac/otp-resolver.js";
-import { createAutomationWorker } from "./services/jobs/automation-worker.js";
-import {
-  NoopAutomationJobScheduler,
-  shouldUseBullMq
-} from "./services/jobs/automation-job-scheduler.js";
+import { NoopAutomationJobScheduler } from "./services/jobs/automation-job-scheduler.js";
 import { RegistrationOrchestrator } from "./services/orchestration/registration-orchestrator.js";
 import { FileStorageService } from "./services/storage/file-storage.js";
+import { SupabaseStorageProvider } from "./services/storage/supabase-storage-provider.js";
 import { createWhatsAppProvider } from "./services/whatsapp/provider.js";
+import { SupabaseCacAccountStore } from "./repositories/supabase-cac-account-store.js";
 
 async function main() {
   assertRuntimeConfig(env);
 
-  if (!shouldUseBullMq(env)) {
-    throw new Error(
-      "The worker process only runs in BullMQ mode. Set REDIS_URL or AUTOMATION_QUEUE_MODE=bullmq."
-    );
-  }
-
-  if (!env.REDIS_URL) {
-    throw new Error("REDIS_URL is required to start the automation worker.");
-  }
-
-  const store = env.REDIS_URL
-    ? new RedisSessionStore(env.REDIS_URL)
-    : new InMemorySessionStore();
+  const store = new SupabaseSessionStore(env);
   await store.connect();
+
+  const storage = new SupabaseStorageProvider(env);
+  await storage.connect();
+
+  const cacAccountStore = new SupabaseCacAccountStore(env);
+  await cacAccountStore.connect();
 
   const orchestrator = new RegistrationOrchestrator(
     env,
     store,
     createWhatsAppProvider(env),
     new RegistrationIntakeService(env),
-    new FileStorageService(env),
-    new CacAutomationService(env, createOtpResolver(env)),
-    new NoopAutomationJobScheduler()
+    new FileStorageService(env, storage),
+    new CacAutomationService(env, createOtpResolver(env), storage),
+    new NoopAutomationJobScheduler(),
+    cacAccountStore
   );
 
-  const worker = createAutomationWorker(env, {
-    submitRegistration: async (sessionId) => {
-      await orchestrator.submitReadySession(sessionId);
-    },
-    resumePayment: async (sessionId) => {
-      await orchestrator.resumeAfterPayment(sessionId);
+  console.log(`[polling-worker] Starting in stateless Supabase mode...`);
+
+  // The Polling Loop
+  // We check for jobs every 15 seconds.
+  const poll = async () => {
+    try {
+      // 1. Look for candidates
+      const ready = await store.listByState("READY_FOR_SUBMISSION");
+      const confirmed = await store.listByState("PAYMENT_CONFIRMED");
+      const jobs = [...ready, ...confirmed];
+
+      if (jobs.length > 0) {
+        console.log(`[polling-worker] Found ${jobs.length} potential jobs. Attempting to claim...`);
+      }
+
+      for (const job of jobs) {
+        // 2. Attempt atomic claim in the orchestrator/store
+        // We set to SUBMITTING immediately via the orchestrator to prevent double-processing.
+        // In the orchestrator, we can use a more atomic check later, but for now
+        // the state machine check in the automation service handles the guard.
+        
+        if (job.state === "READY_FOR_SUBMISSION") {
+          console.log(`[polling-worker] Processing submission: ${job.id}`);
+          await orchestrator.submitReadySession(job.id);
+        } else if (job.state === "PAYMENT_CONFIRMED") {
+          console.log(`[polling-worker] Processing resume payment: ${job.id}`);
+          await orchestrator.resumeAfterPayment(job.id);
+        }
+      }
+    } catch (err) {
+      console.error(`[polling-worker] Error in loop: ${String(err)}`);
+    } finally {
+      setTimeout(() => void poll(), 15000);
     }
-  });
+  };
 
-  console.log(
-    `[automation-worker] listening on queue ${env.AUTOMATION_QUEUE_NAME} with concurrency ${env.AUTOMATION_WORKER_CONCURRENCY}`
-  );
+  void poll();
 
   const shutdown = async () => {
-    await worker.close();
+    console.log("[polling-worker] Shutting down...");
     process.exit(0);
   };
 
@@ -67,3 +85,4 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+

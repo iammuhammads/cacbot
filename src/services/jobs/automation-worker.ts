@@ -21,6 +21,12 @@ export function createAutomationWorker(
   const worker = new Worker<AutomationJobPayload>(
     env.AUTOMATION_QUEUE_NAME,
     async (job) => {
+      // Phase 3: Anti-Detection Rate Limiting
+      // Injected random delay (5-15s) to prevent concurrent workers from hitting CAC at exactly the same microsecond
+      const jitterMs = Math.floor(Math.random() * 10000) + 5000;
+      console.log(`[automation-worker] Job ${job.id} selected. Sleeping ${jitterMs}ms for anti-detection...`);
+      await new Promise(r => setTimeout(r, jitterMs));
+
       if (job.name === "submit_registration") {
         await handlers.submitRegistration(job.data.sessionId);
         return;

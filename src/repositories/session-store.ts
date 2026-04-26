@@ -1,5 +1,5 @@
-import { createClient, type RedisClientType } from "redis";
 import type { SessionRecord, SessionState } from "../types/domain.js";
+import type { Env } from "../config/env.js";
 
 export interface SessionStore {
   connect(): Promise<void>;
@@ -50,90 +50,104 @@ export class InMemorySessionStore implements SessionStore {
   }
 }
 
-export class RedisSessionStore implements SessionStore {
-  private readonly client: RedisClientType;
+export class SupabaseSessionStore implements SessionStore {
+  private client: any;
 
-  constructor(redisUrl: string) {
-    this.client = createClient({ url: redisUrl });
-  }
+  constructor(private readonly env: Env) {}
 
   async connect(): Promise<void> {
-    if (!this.client.isOpen) {
-      await this.client.connect();
+    if (!this.env.SUPABASE_URL || !this.env.SUPABASE_SERVICE_KEY) {
+      throw new Error("SUPABASE_URL and SUPABASE_SERVICE_KEY are required for SupabaseSessionStore.");
     }
+    const { createClient } = await import("@supabase/supabase-js");
+    this.client = createClient(this.env.SUPABASE_URL, this.env.SUPABASE_SERVICE_KEY);
   }
 
   async getById(sessionId: string): Promise<SessionRecord | null> {
-    const value = await this.client.get(`session:${sessionId}`);
-    return value ? (JSON.parse(value) as SessionRecord) : null;
+    const { data, error } = await this.client
+      .from("sessions")
+      .select("*")
+      .eq("id", sessionId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    return this.mapFromDb(data);
   }
 
   async getActiveByUser(userId: string): Promise<SessionRecord | null> {
-    const currentId = await this.client.get(`user-active:${userId}`);
-    if (!currentId) {
-      return null;
-    }
+    const { data, error } = await this.client
+      .from("sessions")
+      .select("*")
+      .eq("user_id", userId)
+      .not("state", "in", `("COMPLETED","ERROR")`)
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-    return this.getById(currentId);
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+
+    return this.mapFromDb(data[0]);
   }
 
   async save(session: SessionRecord): Promise<void> {
-    const multi = this.client.multi();
-    multi.set(`session:${session.id}`, JSON.stringify(session));
-    multi.sAdd(`state:${session.state}`, session.id);
-    multi.set(`user-active:${session.userId}`, session.id);
+    const payload = {
+      id: session.id,
+      user_id: session.userId,
+      state: session.state,
+      collected_data: session.collectedData,
+      history: session.history,
+      audit_trail: session.auditTrail,
+      last_action: session.lastAction,
+      updated_at: session.updatedAt
+    };
 
-    const states: SessionState[] = [
-      "NEW",
-      "COLLECTING_DATA",
-      "READY_FOR_SUBMISSION",
-      "SUBMITTING",
-      "AWAITING_PAYMENT",
-      "PAYMENT_CONFIRMED",
-      "COMPLETED",
-      "ERROR",
-      "MANUAL_REVIEW"
-    ];
+    const { error } = await this.client
+      .from("sessions")
+      .upsert(payload, { onConflict: "id" });
 
-    for (const state of states) {
-      if (state !== session.state) {
-        multi.sRem(`state:${state}`, session.id);
-      }
-    }
-
-    if (isTerminalState(session.state)) {
-      multi.del(`user-active:${session.userId}`);
-    }
-
-    await multi.exec();
+    if (error) throw error;
   }
 
   async listByState(state?: SessionState): Promise<SessionRecord[]> {
-    if (!state) {
-      const keys = await this.client.keys("session:*");
-      if (keys.length === 0) {
-        return [];
-      }
-      const values = await this.client.mGet(keys);
-      return values
-        .filter((value): value is string => Boolean(value))
-        .map((value) => JSON.parse(value) as SessionRecord);
+    let query = this.client.from("sessions").select("*");
+    if (state) {
+      query = query.eq("state", state);
     }
 
-    const ids = await this.client.sMembers(`state:${state}`);
-    if (ids.length === 0) {
-      return [];
-    }
+    const { data, error } = await query;
+    if (error) throw error;
 
-    const values = await this.client.mGet(ids.map((id) => `session:${id}`));
-    return values
-      .filter((value): value is string => Boolean(value))
-      .map((value) => JSON.parse(value) as SessionRecord);
+    return (data || []).map((row: any) => this.mapFromDb(row));
   }
 
   async findAwaitingPaymentByAgent(agentPhone: string): Promise<SessionRecord[]> {
-    const records = await this.listByState("AWAITING_PAYMENT");
-    return records.filter((record) => record.assignedAgent === agentPhone);
+    const { data, error } = await this.client
+      .from("sessions")
+      .select("*")
+      .eq("state", "AWAITING_PAYMENT");
+
+    if (error) throw error;
+
+    const records = (data || []).map((row: any) => this.mapFromDb(row));
+    return records.filter((r: SessionRecord) => r.assignedAgent === agentPhone);
+  }
+
+  private mapFromDb(row: any): SessionRecord {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      provider: "twilio", // Default provider, can be refined if stored
+      state: row.state as SessionState,
+      collectedData: row.collected_data,
+      history: row.history,
+      auditTrail: row.audit_trail,
+      lastAction: row.last_action,
+      updatedAt: row.updated_at,
+      createdAt: row.created_at
+    };
   }
 }
+
 

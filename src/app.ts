@@ -1,14 +1,21 @@
 import Fastify from "fastify";
 import formBody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
+import helmet from "@fastify/helmet";
+import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import type { Env } from "./config/env.js";
 import { getRuntimeCheckReport } from "./config/runtime-checks.js";
-import { InMemorySessionStore, RedisSessionStore } from "./repositories/session-store.js";
+import { loadSecrets } from "./services/secrets/loader.js";
+import { initSentry } from "./services/monitoring/sentry.js";
+import { SupabaseSessionStore } from "./repositories/session-store.js";
 import { RegistrationIntakeService } from "./services/ai/intake-service.js";
 import { CacAutomationService } from "./services/cac/cac-automation.js";
 import { createOtpResolver } from "./services/cac/otp-resolver.js";
 import { RegistrationOrchestrator } from "./services/orchestration/registration-orchestrator.js";
 import { FileStorageService } from "./services/storage/file-storage.js";
+import { SupabaseStorageProvider } from "./services/storage/supabase-storage-provider.js";
+import { SupabaseCacAccountStore } from "./repositories/supabase-cac-account-store.js";
 import { createWhatsAppProvider } from "./services/whatsapp/provider.js";
 import type { SessionState } from "./types/domain.js";
 import {
@@ -17,67 +24,96 @@ import {
   renderDashboardSettings
 } from "./services/dashboard/html.js";
 import { renderLandingPage } from "./services/landing/html.js";
-import {
-  BullMqAutomationJobScheduler,
-  InlineAutomationJobScheduler,
-  shouldUseBullMq
-} from "./services/jobs/automation-job-scheduler.js";
-import { createQueueMonitor } from "./services/jobs/queue-monitor.js";
+import { NoopAutomationJobScheduler } from "./services/jobs/automation-job-scheduler.js";
+import { SupabaseJobScheduler } from "./services/jobs/supabase-job-scheduler.js";
 import { setupClerk, requireAuth } from "./plugins/clerk.js";
+import { SessionPoolManager } from "./services/cac/session-manager.js";
+import { getAuth } from "@clerk/fastify";
 import { BotConfigStore, MarketingStore } from "./repositories/bot-config-store.js";
 
 export async function buildApp(env: Env) {
+  // attempt to load secrets from configured backend (Vault) and initialize monitoring
+  const externalSecrets = await loadSecrets(env).catch((err) => {
+    // log but continue
+    // eslint-disable-next-line no-console
+    console.warn('loadSecrets error', err);
+    return {} as Record<string, string>;
+  });
+
+  // if an encryption key is provided from secrets backend, use it to augment env at runtime
+  if (externalSecrets.CREDENTIALS_ENCRYPTION_KEY) {
+    // mutate env so stores that read env.CREDENTIALS_ENCRYPTION_KEY will work
+    // @ts-ignore
+    env.CREDENTIALS_ENCRYPTION_KEY = externalSecrets.CREDENTIALS_ENCRYPTION_KEY;
+  }
+
+  await initSentry(env);
+
   const app = Fastify({
     logger: true
   });
 
+  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(cors);
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute'
+  });
+  
   await app.register(formBody);
   await app.register(multipart);
   await setupClerk(app);
 
-  const store = env.REDIS_URL
-    ? new RedisSessionStore(env.REDIS_URL)
-    : new InMemorySessionStore();
+  const storageProvider = new SupabaseStorageProvider(env);
+  await storageProvider.connect();
+
+  const store = new SupabaseSessionStore(env);
   await store.connect();
 
   const provider = createWhatsAppProvider(env);
-  const fileStorage = new FileStorageService(env);
+  const fileStorage = new FileStorageService(env, storageProvider);
   const intakeService = new RegistrationIntakeService(env);
-  const automation = new CacAutomationService(env, createOtpResolver(env));
-  const queueMonitor = createQueueMonitor(env);
+  const automation = new CacAutomationService(env, createOtpResolver(env), storageProvider);
+  
+  const cacAccountStore = new SupabaseCacAccountStore(env);
+  await cacAccountStore.connect();
+
   const botConfig = new BotConfigStore(env);
   const marketing = new MarketingStore();
-  let orchestrator!: RegistrationOrchestrator;
-  const jobScheduler = shouldUseBullMq(env)
-    ? new BullMqAutomationJobScheduler(env)
-    : new InlineAutomationJobScheduler({
-        submitRegistration: async (sessionId) => {
-          await orchestrator.submitReadySession(sessionId);
-        },
-        resumePayment: async (sessionId) => {
-          await orchestrator.resumeAfterPayment(sessionId);
-        }
-      });
+  
+  const jobScheduler = new SupabaseJobScheduler(store);
 
-  orchestrator = new RegistrationOrchestrator(
+  const orchestrator = new RegistrationOrchestrator(
     env,
     store,
     provider,
     intakeService,
     fileStorage,
     automation,
-    jobScheduler
+    jobScheduler,
+    cacAccountStore
+  );
+
+  // Phase 4: Session Manager Heartbeat
+  // Proactively refreshes CAC sessions every hour to avoid OTP blocks
+  const sessionManager = new SessionPoolManager(env);
+  sessionManager.startHeartbeat(3600000); 
+
+  // Post-inc approval helper
+  const postIncOrchestrator = new (await import("./services/orchestration/post-inc-orchestrator.js")).PostIncOrchestrator(
+    env,
+    store,
+    provider
   );
 
   app.get("/health", async () => ({
     ok: true,
     provider: provider.name,
-    redis: Boolean(env.REDIS_URL),
-    queueMode: shouldUseBullMq(env) ? "bullmq" : "inline"
+    supabase: Boolean(env.SUPABASE_URL),
+    queueMode: "supabase-polling"
   }));
 
   app.get("/health/config", async () => getRuntimeCheckReport(env));
-  app.get("/queue/status", async () => queueMonitor.getSnapshot(20));
 
   app.post("/api/leads", async (request, reply) => {
     const body = (request.body ?? {}) as { email?: string };
@@ -86,11 +122,54 @@ export async function buildApp(env: Env) {
     return { ok: true, message: "Lead captured! Talk soon." };
   });
 
+  // Link CAC account (store encrypted credentials per authenticated user)
+  app.post("/api/link-cac", { preHandler: [requireAuth] }, async (request, reply) => {
+    const body = request.body as { email?: string; password?: string; useProfessionalAccount?: string; consent?: string };
+    if (!body.email || !body.password) return reply.code(400).send({ error: "email and password are required" });
+    if (!body.consent || body.consent !== "on") return reply.code(400).send({ error: "User consent is required to store CAC credentials." });
+    try {
+      const { userId } = getAuth(request) as any;
+      if (!userId) return reply.code(401).send({ error: "Unauthorized" });
+      await cacAccountStore.saveAccount(userId, {
+        email: body.email,
+        password: body.password,
+        useProfessionalAccount: Boolean(body.useProfessionalAccount),
+        consent: true
+      });
+      return { ok: true };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ error: "Could not save CAC account." });
+    }
+  });
+
+  app.get("/api/cac-account", { preHandler: [requireAuth] }, async (request, reply) => {
+    const { userId } = getAuth(request) as any;
+    if (!userId) return reply.code(401).send({ error: "Unauthorized" });
+    const stored = await cacAccountStore.getAccount(userId);
+    if (!stored) return { linked: false };
+    return { linked: true, email: stored.email, useProfessionalAccount: Boolean(stored.useProfessionalAccount) };
+  });
+
+  app.post("/api/unlink-cac", { preHandler: [requireAuth] }, async (request, reply) => {
+    const { userId } = getAuth(request) as any;
+    if (!userId) return reply.code(401).send({ error: "Unauthorized" });
+    await cacAccountStore.deleteAccount(userId);
+    return { ok: true };
+  });
+
   app.get("/", async (_request, reply) => {
     return reply.type("text/html").send(renderLandingPage());
   });
 
-  app.post("/webhooks/whatsapp", async (request, reply) => {
+  app.post("/webhooks/whatsapp", {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: "1 minute"
+      }
+    }
+  }, async (request, reply) => {
     if (provider.validateInboundRequest) {
       const valid = provider.validateInboundRequest({
         body: request.body,
@@ -208,6 +287,21 @@ export async function buildApp(env: Env) {
       ok = await orchestrator.retrySubmission(body.sessionId);
     } else if (body.action === "resume_payment") {
       ok = await orchestrator.confirmPaymentAndResume(body.sessionId);
+    } else if (body.action === "approve_postinc") {
+      // Agent approves a pending post-inc filing
+      const outcome = {
+        kind: "COMPLETED",
+        summary: "Approved by agent via dashboard.",
+        portal: {}
+      } as any;
+      ok = await postIncOrchestrator.processApprovalOutcome(body.sessionId, outcome as any);
+    } else if (body.action === "mark_queried") {
+      const outcome = {
+        kind: "QUERIED",
+        summary: "Marked as queried by agent.",
+        portal: {}
+      } as any;
+      ok = await postIncOrchestrator.processApprovalOutcome(body.sessionId, outcome as any);
     }
 
     if (!ok) {

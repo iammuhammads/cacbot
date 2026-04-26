@@ -7,6 +7,7 @@ import { mergeRegistrationData } from "../../utils/merge.js";
 import { validateRegistrationData } from "../../utils/validation.js";
 import type { RegistrationIntakeService } from "../ai/intake-service.js";
 import type { CacAutomationService } from "../cac/cac-automation.js";
+import type { ICacAccountStore } from "../../repositories/cac-account-store.js";
 import type { AutomationJobScheduler } from "../jobs/automation-job-scheduler.js";
 import type { FileStorageService } from "../storage/file-storage.js";
 import type { WhatsAppProvider } from "../whatsapp/provider.js";
@@ -16,14 +17,15 @@ function normalizePhone(value: string | undefined): string {
 }
 
 function extractAgentCommand(text: string): AgentCommand | null {
-  const match = text.trim().match(/^(PAID|STATUS|OVERRIDE|RESUME|HELP)\s*([A-Za-z0-9-]+)?$/i);
+  const match = text.trim().match(/^(PAID|STATUS|OVERRIDE|RESUME|HELP|LIST|CANCEL|NOTE)\s*(.+)?$/i);
   if (!match?.[1]) {
     return null;
   }
 
   return {
     command: match[1].toUpperCase() as AgentCommand["command"],
-    sessionId: match[2]
+    sessionId: match[2]?.trim()?.split(/\s+/)[0],
+    extra: match[2]?.trim()?.split(/\s+/)?.slice(1)?.join(" ")
   };
 }
 
@@ -37,7 +39,8 @@ export class RegistrationOrchestrator {
     private readonly intakeService: RegistrationIntakeService,
     private readonly fileStorage: FileStorageService,
     private readonly automation: CacAutomationService,
-    private readonly jobScheduler: AutomationJobScheduler
+    private readonly jobScheduler: AutomationJobScheduler,
+    private readonly cacAccountStore?: ICacAccountStore
   ) {
     this.agentPhones = new Set(env.agentPhoneNumbers.map((value) => normalizePhone(value)));
   }
@@ -113,8 +116,73 @@ export class RegistrationOrchestrator {
     if (command.command === "HELP") {
       await this.provider.sendTextMessage(
         from,
-        'Commands: "PAID <sessionId>", "STATUS <sessionId>", "OVERRIDE <sessionId>", "RESUME <sessionId>".'
+        'Commands:\n• PAID <sessionId> — confirm payment\n• STATUS <sessionId> — check status\n• LIST — show all active sessions\n• OVERRIDE <sessionId> — move to manual review\n• RESUME <sessionId> — resume after payment\n• CANCEL <sessionId> — cancel a session\n• NOTE <sessionId> <text> — add internal note\n• HELP — show this menu'
       );
+      return;
+    }
+
+    if (command.command === "LIST") {
+      const sessions = await this.store.listByState();
+      const active = sessions.filter((s) => !["COMPLETED", "ERROR"].includes(s.state));
+      if (active.length === 0) {
+        await this.provider.sendTextMessage(from, "No active sessions at the moment.");
+        return;
+      }
+
+      const summary = active
+        .slice(0, 10)
+        .map((s) => `• ${s.id.slice(0, 8)} | ${s.collectedData.clientName ?? s.userId} | ${s.state}`)
+        .join("\n");
+      await this.provider.sendTextMessage(from, `Active Sessions (${active.length}):\n${summary}`);
+      return;
+    }
+
+    if (command.command === "CANCEL") {
+      if (!command.sessionId) {
+        await this.provider.sendTextMessage(from, "Send CANCEL <sessionId> to abort a case.");
+        return;
+      }
+
+      const session = await this.store.getById(command.sessionId);
+      if (!session) {
+        await this.provider.sendTextMessage(from, `No session found for ${command.sessionId}.`);
+        return;
+      }
+
+      this.setState(session, "ERROR", "agent_cancelled");
+      this.appendAudit(session, "agent", "session_cancelled", { reason: "Agent cancelled via WhatsApp" });
+      await this.persist(session);
+
+      await this.provider.sendTextMessage(
+        session.userId,
+        "Your registration process has been paused. Our team will reach out if any further action is needed."
+      );
+      await this.provider.sendTextMessage(from, `Session ${session.id.slice(0, 8)} has been cancelled.`);
+      return;
+    }
+
+    if (command.command === "NOTE") {
+      if (!command.sessionId) {
+        await this.provider.sendTextMessage(from, "Send NOTE <sessionId> <your note text>.");
+        return;
+      }
+
+      const noteText = command.extra;
+      if (!noteText) {
+        await this.provider.sendTextMessage(from, "Please include note text: NOTE <sessionId> <text>.");
+        return;
+      }
+
+      const session = await this.store.getById(command.sessionId);
+      if (!session) {
+        await this.provider.sendTextMessage(from, `No session found for ${command.sessionId}.`);
+        return;
+      }
+
+      this.appendAudit(session, "agent", "internal_note", { note: noteText });
+      session.collectedData.notes.push(`[AGENT] ${noteText}`);
+      await this.persist(session);
+      await this.provider.sendTextMessage(from, `Note added to ${session.id.slice(0, 8)}.`);
       return;
     }
 
@@ -215,6 +283,39 @@ export class RegistrationOrchestrator {
     }
 
     const inboundText = message.text.trim() || `[${message.media.length} document(s) uploaded]`;
+    
+    // Elite Manual OTP Logic
+    // Only sniff for OTP if we are in AWAITING_OTP or ERROR states
+    const isAwaitingOtp = session.state === "AWAITING_OTP" || session.state === "ERROR";
+    const otpCandidate = inboundText.replace(/\s+/g, "").match(/\b\d{6}\b/)?.[0];
+
+    if (isAwaitingOtp && otpCandidate) {
+      session.collectedData.portal = {
+        ...session.collectedData.portal,
+        pendingManualOtp: {
+          code: otpCandidate,
+          receivedAt: new Date().toISOString(),
+          confirmed: false
+        }
+      };
+      await this.persist(session);
+      await this.provider.sendTextMessage(
+        message.from,
+        `I detected "${otpCandidate}" as your CAC login code. Is this correct? Reply "YES" to confirm.`
+      );
+      return;
+    }
+
+    if (inboundText.toUpperCase() === "YES" && session.collectedData.portal?.pendingManualOtp?.confirmed === false) {
+      const manual = session.collectedData.portal.pendingManualOtp;
+      manual.confirmed = true;
+      this.setState(session, "READY_FOR_SUBMISSION", "manual_otp_confirmed");
+      await this.persist(session);
+      await this.provider.sendTextMessage(message.from, "Confirming code. Resuming your registration now! 🚀");
+      await this.jobScheduler.enqueueSubmission(session.id, 1); // Resume with HIGH PRIORITY
+      return;
+    }
+
     this.appendTurn(session, "client", inboundText);
     this.appendAudit(session, "client", "message_received", { messageId: message.messageId });
 
@@ -258,6 +359,20 @@ export class RegistrationOrchestrator {
       return;
     }
 
+    // Attach per-user CAC credentials if available
+    try {
+      const auth = this.cacAccountStore ? await this.cacAccountStore.getAccount(session.userId) : null;
+      if (auth) {
+        session.collectedData.portalCredentials = {
+          email: auth.email,
+          password: auth.password,
+          useProfessionalAccount: Boolean(auth.useProfessionalAccount)
+        };
+      }
+    } catch (err) {
+      // ignore errors retrieving user account; fall back to env credentials
+    }
+
     this.setState(session, "SUBMITTING", "automation_started");
     this.appendAudit(session, "system", "automation_submission_started");
     await this.persist(session);
@@ -294,9 +409,33 @@ export class RegistrationOrchestrator {
           session.userId,
           "Your CAC application has been prepared and moved to payment processing. I'll keep you updated as soon as the payment is confirmed."
         );
+
         return;
       }
 
+      if (outcome.kind === "PENDING_APPROVAL" || outcome.kind === "QUERIED") {
+        this.setState(session, "PENDING_APPROVAL", "awaiting_cac_approval");
+        this.appendAudit(session, "system", "post_inc_pending", outcome);
+        await this.persist(session);
+
+        if (session.assignedAgent) {
+          await this.provider.sendTextMessage(
+            session.assignedAgent,
+            `Post-inc session ${session.id} requires manual review: ${outcome.summary} | RC: ${session.collectedData.postIncData?.existingRcNumber ?? "N/A"}`
+          );
+        }
+
+        await this.provider.sendTextMessage(
+          session.userId,
+          ["Your post-incorporation filing has been submitted and is pending CAC approval.", outcome.summary]
+            .filter(Boolean)
+            .join("\n")
+        );
+
+        return;
+      }
+
+      // Default: completed
       this.setState(session, "COMPLETED", "automation_completed");
       this.appendAudit(session, "system", "automation_completed", outcome);
       await this.persist(session);
@@ -308,21 +447,35 @@ export class RegistrationOrchestrator {
           outcome.summary,
           outcome.portal?.referenceNumber ? `Reference: ${outcome.portal.referenceNumber}` : undefined,
           outcome.portal?.statusText ? `Status: ${outcome.portal.statusText}` : undefined
-        ]
-          .filter(Boolean)
-          .join("\n")
+        ].filter(Boolean).join("\n")
       );
     } catch (error) {
-      this.setState(session, "ERROR", "automation_failed");
+      const isOtpTimeout = session.state === "AWAITING_OTP";
+      
+      this.setState(session, isOtpTimeout ? "AWAITING_OTP" : "ERROR", "automation_failed");
       this.appendAudit(session, "system", "automation_error", {
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
+        isOtpTimeout
       });
       await this.persist(session);
+
+      if (isOtpTimeout) {
+        await this.provider.sendTextMessage(
+          session.userId,
+          "We are stuck at the CAC login screen! 🛑\n\nI couldn't receive the automated Login Code (OTP) via email. If you have the 6-digit code on your phone, please send it here so I can finish your registration!"
+        ).catch(() => undefined);
+      } else {
+        // Notify the client with a reassuring message
+        await this.provider.sendTextMessage(
+          session.userId,
+          "We're experiencing a brief delay with your registration. Our team is on it and will update you shortly."
+        ).catch(() => undefined);
+      }
 
       if (session.assignedAgent) {
         await this.provider.sendTextMessage(
           session.assignedAgent,
-          `Automation failed for session ${session.id}: ${error instanceof Error ? error.message : String(error)}`
+          `${isOtpTimeout ? "⏳" : "⚠️"} Automation ${isOtpTimeout ? "paused for OTP" : "failed"} for session ${session.id}:\n${error instanceof Error ? error.message : String(error)}`
         );
       }
     }
@@ -347,21 +500,49 @@ export class RegistrationOrchestrator {
       session.collectedData = mergeRegistrationData(session.collectedData, {
         portal: outcome.portal
       });
+
+      if (outcome.kind === "COMPLETED") {
+        this.setState(session, "COMPLETED", "post_payment_completed");
+        this.appendAudit(session, "system", "post_payment_completed", outcome);
+        await this.persist(session);
+
+        await this.provider.sendTextMessage(
+          session.userId,
+          [
+            "Your CAC registration has been updated.",
+            outcome.summary,
+            outcome.portal?.referenceNumber ? `Reference: ${outcome.portal.referenceNumber}` : undefined,
+            outcome.portal?.statusText ? `Status: ${outcome.portal.statusText}` : undefined
+          ]
+            .filter(Boolean)
+            .join("\n")
+        );
+        return;
+      }
+
+      if (outcome.kind === "PENDING_APPROVAL" || outcome.kind === "QUERIED") {
+        this.setState(session, "PENDING_APPROVAL", "post_payment_pending_approval");
+        this.appendAudit(session, "system", "post_payment_pending_approval", outcome);
+        await this.persist(session);
+
+        if (session.assignedAgent) {
+          await this.provider.sendTextMessage(
+            session.assignedAgent,
+            `Post-inc session ${session.id} requires follow-up after payment: ${outcome.summary}`
+          );
+        }
+
+        await this.provider.sendTextMessage(
+          session.userId,
+          ["Your filing has been paid for and is now pending CAC review.", outcome.summary].filter(Boolean).join("\n")
+        );
+        return;
+      }
+
+      // Fallback: mark completed and persist
       this.setState(session, "COMPLETED", "post_payment_completed");
       this.appendAudit(session, "system", "post_payment_completed", outcome);
       await this.persist(session);
-
-      await this.provider.sendTextMessage(
-        session.userId,
-        [
-          "Your CAC registration has been updated.",
-          outcome.summary,
-          outcome.portal?.referenceNumber ? `Reference: ${outcome.portal.referenceNumber}` : undefined,
-          outcome.portal?.statusText ? `Status: ${outcome.portal.statusText}` : undefined
-        ]
-          .filter(Boolean)
-          .join("\n")
-      );
     } catch (error) {
       this.setState(session, "ERROR", "post_payment_resume_failed");
       this.appendAudit(session, "system", "post_payment_resume_failed", {

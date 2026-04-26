@@ -37,7 +37,31 @@ const personSchema = z.object({
   role: z.string().optional()
 });
 
+const workflowTypeSchema = z
+  .enum([
+    "NEW_REGISTRATION",
+    "CHANGE_NAME",
+    "CHANGE_DIRECTORS",
+    "CHANGE_SHARES",
+    "CHANGE_ADDRESS",
+    "CHANGE_ACTIVITY",
+    "ANNUAL_RETURNS"
+  ])
+  .optional();
+
+const postIncDataSchema = z
+  .object({
+    existingRcNumber: z.string().optional(),
+    existingName: z.string().optional(),
+    changeDetails: z.string().optional(),
+    proposedNames: z.array(z.string()).optional(),
+    newDirectors: z.array(personSchema).optional(),
+    removedDirectorNames: z.array(z.string()).optional()
+  })
+  .optional();
+
 const candidateDataSchema = z.object({
+  workflowType: workflowTypeSchema,
   registrationType: registrationTypeSchema,
   registrationSubtype: z.string().optional(),
   clientName: z.string().optional(),
@@ -52,6 +76,7 @@ const candidateDataSchema = z.object({
   proprietors: z.array(personSchema).optional(),
   directors: z.array(personSchema).optional(),
   trustees: z.array(personSchema).optional(),
+  postIncData: postIncDataSchema,
   notes: z.array(z.string()).optional()
 });
 
@@ -89,6 +114,19 @@ const llmResponseJsonSchema = {
       type: "object",
       additionalProperties: false,
       properties: {
+        workflowType: {
+          type: ["string", "null"],
+          enum: [
+            "NEW_REGISTRATION",
+            "CHANGE_NAME",
+            "CHANGE_DIRECTORS",
+            "CHANGE_SHARES",
+            "CHANGE_ADDRESS",
+            "CHANGE_ACTIVITY",
+            "ANNUAL_RETURNS",
+            null
+          ]
+        },
         registrationType: {
           type: ["string", "null"],
           enum: ["BUSINESS_NAME", "COMPANY", "INCORPORATED_TRUSTEES", "OTHER", null]
@@ -208,6 +246,53 @@ const llmResponseJsonSchema = {
           type: ["array", "null"],
           items: { type: "string" }
         }
+      ,
+      postIncData: {
+        type: ["object", "null"],
+        additionalProperties: false,
+        properties: {
+          existingRcNumber: { type: ["string", "null"] },
+          existingName: { type: ["string", "null"] },
+          changeDetails: { type: ["string", "null"] },
+          proposedNames: {
+            type: ["array", "null"],
+            items: { type: "string" }
+          },
+          newDirectors: {
+            type: ["array", "null"],
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                fullName: { type: ["string", "null"] },
+                dob: { type: ["string", "null"] },
+                nationality: { type: ["string", "null"] },
+                email: { type: ["string", "null"] },
+                phone: { type: ["string", "null"] },
+                residentialAddress: {
+                  type: ["object", "null"],
+                  additionalProperties: false,
+                  properties: {
+                    line1: { type: ["string", "null"] },
+                    line2: { type: ["string", "null"] },
+                    city: { type: ["string", "null"] },
+                    lga: { type: ["string", "null"] },
+                    state: { type: ["string", "null"] },
+                    country: { type: ["string", "null"] }
+                  }
+                },
+                idType: { type: ["string", "null"] },
+                idNumber: { type: ["string", "null"] },
+                role: { type: ["string", "null"] }
+              }
+            }
+          },
+          removedDirectorNames: {
+            type: ["array", "null"],
+            items: { type: "string" }
+          }
+        }
+      }
       }
     },
     missingFields: {
@@ -332,7 +417,8 @@ export class RegistrationIntakeService {
               "Supported registrationType values are BUSINESS_NAME, COMPANY, INCORPORATED_TRUSTEES, OTHER.",
               "Normalize all dates to YYYY-MM-DD whenever the client gives a full date.",
               "When information is missing or inconsistent, ask follow-up questions in plain English.",
-              "Do not say the workflow is complete unless the dossier is genuinely ready for submission."
+                "Do not say the workflow is complete unless the dossier is genuinely ready for submission.",
+                "If the user intends to MODIFY an existing registration (for example: change address, change directors, change company name, change shares, change activity, or file annual returns), set the `workflowType` to one of: CHANGE_ADDRESS, CHANGE_DIRECTORS, CHANGE_NAME, CHANGE_SHARES, CHANGE_ACTIVITY, ANNUAL_RETURNS and populate `postIncData` with any extracted details (especially `existingRcNumber` and `existingName`). If it's a new registration, set `workflowType` to NEW_REGISTRATION. For change workflows, ask for the RC number first if missing, then request one additional required piece of information at a time."
             ].join(" ")
           }
         ]
@@ -409,6 +495,7 @@ export class RegistrationIntakeService {
       "5. NEVER HALLUCINATE: If you aren't 100% sure of a detail, ask the user to clarify.",
       "6. MAINTAIN CONTROL: If the user asks general questions or goes off-track, answer in ONE short sentence and immediately steer back to the registration intake.",
       "7. DATA COLLECTION: If the user provides an email and password for their CAC account, extract them into portalCredentials.",
+      "POST-INCORPORATION DETECTION: If the user is asking to modify an existing registration rather than create a new one (phrases like 'change address', 'change directors', 'change name', 'file annual returns', 'change share'), set `workflowType` to one of: CHANGE_ADDRESS, CHANGE_DIRECTORS, CHANGE_NAME, CHANGE_SHARES, CHANGE_ACTIVITY, ANNUAL_RETURNS and populate `postIncData` with any extracted details (especially `existingRcNumber` and `existingName`). If RC number is missing, ask for it immediately. For change flows, request only one missing piece at a time.",
       "6. SHOW PROGRESS: Let the user know where they are (e.g., 'We're almost done, I just need your address.')",
       "7. CLEAR TRANSITIONS: When all data is collected, explicitly state that you are proceeding to submission.",
       "",

@@ -78,7 +78,7 @@ function renderAuthGate(): string {
       async
       crossorigin="anonymous"
       data-clerk-publishable-key="${env.CLERK_PUBLISHABLE_KEY}"
-      src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+      src="https://proven-chow-42.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
       type="text/javascript"
     ></script>
     <script>
