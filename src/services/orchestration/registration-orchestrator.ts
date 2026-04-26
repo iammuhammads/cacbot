@@ -278,7 +278,7 @@ export class RegistrationOrchestrator {
       session.collectedData.documents.push(...storedDocuments);
       this.appendAudit(session, "client", "documents_uploaded", {
         count: storedDocuments.length,
-        documentIds: storedDocuments.map((item) => item.id)
+        documentIds: storedDocuments.map((item: any) => item.id)
       });
     }
 
