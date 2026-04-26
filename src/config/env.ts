@@ -65,7 +65,12 @@ const envSchema = z.object({
   CAC_DEMO_NETWORK: z.enum(["offline", "fail-fast", "online"]).optional()
 });
 
-const parsed = envSchema.parse(process.env);
+const envData = { ...process.env };
+if (envData.RENDER_EXTERNAL_URL && !envData.PUBLIC_BASE_URL) {
+  envData.PUBLIC_BASE_URL = envData.RENDER_EXTERNAL_URL;
+}
+
+const parsed = envSchema.parse(envData);
 
 export const env = {
   ...parsed,

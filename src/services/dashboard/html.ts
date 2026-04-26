@@ -396,7 +396,7 @@ function layout(title: string, body: string, activePage: string = "overview"): s
       /* ─── Stats Grid ─── */
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         gap: 20px;
         margin-bottom: 32px;
       }
@@ -1144,6 +1144,38 @@ export function renderDashboardIndex(sessions: SessionRecord[]): string {
     </div>
 
     <div class="content">
+      <!-- System Health Pulse -->
+      <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 32px;">
+        <div class="stat-card fade-in" style="padding: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="pulse-dot"></div>
+            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Database</span>
+          </div>
+          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: var(--success); letter-spacing: -0.02em;">SUPABASE ONLINE</p>
+        </div>
+        <div class="stat-card fade-in fade-in-delay-1" style="padding: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="pulse-dot" style="background: var(--info);"></div>
+            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Worker</span>
+          </div>
+          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: var(--info); letter-spacing: -0.02em;">POLLING ACTIVE</p>
+        </div>
+        <div class="stat-card fade-in fade-in-delay-2" style="padding: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="pulse-dot" style="background: var(--accent);"></div>
+            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">AI Intake</span>
+          </div>
+          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: var(--text); letter-spacing: -0.02em;">CLAUDE READY</p>
+        </div>
+        <div class="stat-card fade-in fade-in-delay-3" style="padding: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="pulse-dot" style="background: var(--warning);"></div>
+            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">WhatsApp</span>
+          </div>
+          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: var(--warning); letter-spacing: -0.02em;">WEBHOOK ACTIVE</p>
+        </div>
+      </div>
+
       <div class="stats-grid">
         <div class="stat-card fade-in fade-in-delay-1">
           <div class="stat-icon" style="background: var(--accent-subtle);">
@@ -1454,14 +1486,19 @@ export function renderDashboardSettings(settings: BotSettings): string {
             </div>
 
             <div class="detail-card fade-in fade-in-delay-2">
-              <h3>🔗 Deployment</h3>
+              <h3>🔗 WhatsApp Deployment</h3>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">Copy the URL below and paste it into your <a href="https://console.twilio.com/us1/develop/sms/settings/whatsapp-sandbox" target="_blank" style="color: var(--accent);">Twilio Sandbox Settings</a> under <b>"When a message comes in"</b>.</p>
+              
               <div class="form-group">
-                <label class="form-label">WhatsApp Registration Link</label>
-                <code class="deploy-url">https://wa.me/${escapeHtml(whatsappNum)}</code>
+                <label class="form-label">Webhook URL (Paste into Twilio)</label>
+                <div style="display: flex; gap: 8px; align-items: center; background: var(--bg-elevated); padding: 12px; border-radius: 8px; border: 1px solid var(--accent);">
+                   <code class="deploy-url" style="color: var(--accent); font-weight: 700; flex: 1;">${escapeHtml(env.PUBLIC_BASE_URL)}/webhooks/whatsapp</code>
+                </div>
               </div>
+
               <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Webhook URL</label>
-                <code class="deploy-url" style="color: var(--accent);">${escapeHtml(env.PUBLIC_BASE_URL)}/webhooks/whatsapp</code>
+                <label class="form-label">WhatsApp Test Link</label>
+                <code class="deploy-url">https://wa.me/${escapeHtml(whatsappNum)}</code>
               </div>
             </div>
             <div class="detail-card fade-in fade-in-delay-3" style="margin-top:20px;">
