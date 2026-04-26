@@ -1114,7 +1114,13 @@ export class CacAutomationService {
 
     const browser = await chromium.launch({
       headless: this.env.CAC_HEADLESS,
-      args: ["--disable-blink-features=AutomationControlled"]
+      args: [
+        "--disable-blink-features=AutomationControlled",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu"
+      ]
     });
 
     const widths = [1920, 1366, 1536, 1440, 1600];

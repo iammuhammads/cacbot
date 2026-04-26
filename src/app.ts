@@ -97,8 +97,11 @@ export async function buildApp(env: Env) {
   // Phase 4: Session Manager Heartbeat
   // Proactively refreshes CAC sessions every hour to avoid OTP blocks
   const sessionManager = new SessionPoolManager(env);
+  // Start the heartbeat and the in-app polling worker
   sessionManager.startHeartbeat(3600000); 
 
+  const { startPollingWorker } = await import("./services/jobs/polling-worker.js");
+  startPollingWorker(env, store, orchestrator);
   // Post-inc approval helper
   const postIncOrchestrator = new (await import("./services/orchestration/post-inc-orchestrator.js")).PostIncOrchestrator(
     env,
