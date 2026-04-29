@@ -7,6 +7,7 @@ export interface SessionStore {
   getActiveByUser(userId: string): Promise<SessionRecord | null>;
   save(session: SessionRecord): Promise<void>;
   listByState(state?: SessionState): Promise<SessionRecord[]>;
+  listByStates(states: SessionState[]): Promise<SessionRecord[]>;
   findAwaitingPaymentByAgent(agentPhone: string): Promise<SessionRecord[]>;
   checkConnection(): Promise<boolean>;
 }
@@ -41,6 +42,10 @@ export class InMemorySessionStore implements SessionStore {
   async listByState(state?: SessionState): Promise<SessionRecord[]> {
     const records = [...this.sessions.values()];
     return state ? records.filter((record) => record.state === state) : records;
+  }
+
+  async listByStates(states: SessionState[]): Promise<SessionRecord[]> {
+    return [...this.sessions.values()].filter((record) => states.includes(record.state));
   }
 
   async findAwaitingPaymentByAgent(agentPhone: string): Promise<SessionRecord[]> {
@@ -124,6 +129,16 @@ export class SupabaseSessionStore implements SessionStore {
     const { data, error } = await query;
     if (error) throw error;
 
+    return (data || []).map((row: any) => this.mapFromDb(row));
+  }
+
+  async listByStates(states: SessionState[]): Promise<SessionRecord[]> {
+    const { data, error } = await this.client
+      .from("sessions")
+      .select("*")
+      .in("state", states);
+
+    if (error) throw error;
     return (data || []).map((row: any) => this.mapFromDb(row));
   }
 

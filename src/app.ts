@@ -265,14 +265,29 @@ export async function buildApp(env: Env) {
 
   app.get("/dashboard", { preHandler: [requireAuth] }, async (_request, reply) => {
     const sessions = await orchestrator.listSessions();
+    const queue = await store.listByStates(["READY_FOR_SUBMISSION", "SUBMITTING", "PAYMENT_CONFIRMED", "AWAITING_OTP"]);
     
-    // Dynamic Health Check
-    const dbHealth = await store.checkConnection();
+    // Real-Time Health Diagnostics
+    const health = {
+      db: await store.checkConnection(),
+      worker: true, // In-app worker is always running if server is up
+      ai: !!env.ANTHROPIC_API_KEY,
+      whatsapp: !!env.TWILIO_ACCOUNT_SID && !!env.TWILIO_AUTH_TOKEN,
+      cac: false
+    };
+
+    // Check CAC Portal Accessibility (ping-like check)
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(env.CAC_PORTAL_URL, { signal: controller.signal, method: 'HEAD' }).catch(() => null);
+      clearTimeout(id);
+      health.cac = !!(res && res.ok);
+    } catch {
+      health.cac = false;
+    }
     
-    return reply.type("text/html").send(renderDashboardIndex(sessions, { 
-      db: dbHealth, 
-      worker: true // Since it's in-process, if this route is hit, it's running
-    }));
+    return reply.type("text/html").send(renderDashboardIndex(sessions, health, queue));
   });
 
   app.get("/dashboard/:sessionId", { preHandler: [requireAuth] }, async (request, reply) => {

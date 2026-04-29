@@ -1085,11 +1085,11 @@ function layout(title: string, body: string, activePage: string = "overview"): s
 </html>`;
 }
 
-export function renderDashboardIndex(sessions: SessionRecord[], health: { db: boolean; worker: boolean }): string {
+export function renderDashboardIndex(sessions: SessionRecord[], health: { db: boolean; worker: boolean; ai: boolean; whatsapp: boolean; cac: boolean }, queue: SessionRecord[]): string {
   const totals = {
     total: sessions.length,
-    intake: sessions.filter((s) => !["COMPLETED", "ERROR", "AWAITING_PAYMENT", "READY_FOR_SUBMISSION", "SUBMITTING", "PAYMENT_CONFIRMED"].includes(s.state)).length,
-    ready: sessions.filter((s) => s.state === "READY_FOR_SUBMISSION").length,
+    intake: sessions.filter((s) => !["COMPLETED", "ERROR", "AWAITING_PAYMENT", "READY_FOR_SUBMISSION", "SUBMITTING", "PAYMENT_CONFIRMED", "AWAITING_OTP"].includes(s.state)).length,
+    ready: sessions.filter((s) => ["READY_FOR_SUBMISSION", "SUBMITTING"].includes(s.state)).length,
     awaiting: sessions.filter((s) => s.state === "AWAITING_PAYMENT").length,
     errors: sessions.filter((s) => s.state === "ERROR").length,
   };
@@ -1105,7 +1105,7 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
         .join("");
 
       return `
-        <tr>
+        <tr class="session-row" data-state="${s.state}">
           <td><a href="/dashboard/${s.id}" class="cell-id">${s.id.slice(0, 8)}…</a></td>
           <td>
             <div class="cell-client">
@@ -1129,6 +1129,18 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
     })
     .join("");
 
+  const queueRows = queue.length > 0 
+    ? queue.map(q => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-elevated); border-radius: 10px; margin-bottom: 8px; border-left: 4px solid var(--accent);">
+          <div>
+            <div style="font-size: 0.85rem; font-weight: 700;">${escapeHtml(q.collectedData.clientName || q.userId)}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">${q.state.replace(/_/g, " ")}</div>
+          </div>
+          <div class="pulse-dot" style="width: 8px; height: 8px;"></div>
+        </div>
+      `).join("")
+    : `<div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.85rem;">No active automation tasks.</div>`;
+
   return layout("Overview", `
     <div class="topbar">
       <div class="topbar-left">
@@ -1137,117 +1149,139 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
       </div>
       <div class="topbar-right">
         <div class="system-status">
-          <div class="pulse-dot" style="background: ${health.db && health.worker ? 'var(--success)' : 'var(--danger)'};"></div>
-          System ${health.db && health.worker ? 'Healthy' : 'Issues Detected'}
+          <div class="pulse-dot" style="background: ${health.db && health.ai ? 'var(--success)' : 'var(--warning)'};"></div>
+          System Pulse: ${health.db && health.ai ? 'OPTIMAL' : 'DEGRADED'}
         </div>
       </div>
     </div>
 
     <div class="content">
-      <!-- System Health Pulse -->
-      <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 32px;">
-        <div class="stat-card fade-in" style="padding: 16px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
+      <!-- Real-Time Pulse Grid -->
+      <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 32px;">
+        <div class="stat-card fade-in" style="padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
             <div class="pulse-dot" style="background: ${health.db ? 'var(--success)' : 'var(--danger)'};"></div>
-            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Database</span>
+            <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Database</span>
           </div>
-          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: ${health.db ? 'var(--success)' : 'var(--danger)'}; letter-spacing: -0.02em;">${health.db ? 'SUPABASE ONLINE' : 'DISCONNECTED'}</p>
+          <p style="font-size: 0.95rem; font-weight: 800; margin-top: 4px; color: ${health.db ? 'var(--success)' : 'var(--danger)'};">${health.db ? 'SUPABASE LIVE' : 'OFFLINE'}</p>
         </div>
-        <div class="stat-card fade-in fade-in-delay-1" style="padding: 16px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="pulse-dot" style="background: ${health.worker ? 'var(--success)' : 'var(--danger)'};"></div>
-            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Worker</span>
+        <div class="stat-card fade-in fade-in-delay-1" style="padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="pulse-dot" style="background: ${health.ai ? 'var(--success)' : 'var(--danger)'};"></div>
+            <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Intake AI</span>
           </div>
-          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: ${health.worker ? 'var(--success)' : 'var(--danger)'}; letter-spacing: -0.02em;">${health.worker ? 'POLLING ACTIVE' : 'STOPPED'}</p>
+          <p style="font-size: 0.95rem; font-weight: 800; margin-top: 4px; color: ${health.ai ? 'var(--success)' : 'var(--danger)'};">${health.ai ? 'CLAUDE-3.5 ACTIVE' : 'MISSING KEY'}</p>
         </div>
-        <div class="stat-card fade-in fade-in-delay-2" style="padding: 16px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="pulse-dot" style="background: var(--accent);"></div>
-            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">AI Intake</span>
+        <div class="stat-card fade-in fade-in-delay-2" style="padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="pulse-dot" style="background: ${health.whatsapp ? 'var(--success)' : 'var(--danger)'};"></div>
+            <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">WhatsApp</span>
           </div>
-          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: var(--text); letter-spacing: -0.02em;">CLAUDE READY</p>
+          <p style="font-size: 0.95rem; font-weight: 800; margin-top: 4px; color: ${health.whatsapp ? 'var(--success)' : 'var(--danger)'};">${health.whatsapp ? 'GATEWAY UP' : 'DISCONNECTED'}</p>
         </div>
-        <div class="stat-card fade-in fade-in-delay-3" style="padding: 16px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="pulse-dot" style="background: var(--warning);"></div>
-            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">WhatsApp</span>
+        <div class="stat-card fade-in fade-in-delay-3" style="padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="pulse-dot" style="background: ${health.cac ? 'var(--success)' : 'var(--danger)'};"></div>
+            <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">CAC Portal</span>
           </div>
-          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: var(--warning); letter-spacing: -0.02em;">WEBHOOK ACTIVE</p>
-        </div>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card fade-in fade-in-delay-1">
-          <div class="stat-icon" style="background: var(--accent-subtle);">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-          </div>
-          <div class="stat-label">Clients in Intake</div>
-          <div class="stat-value">${totals.intake}</div>
-        </div>
-
-        <div class="stat-card fade-in fade-in-delay-2">
-          <div class="stat-icon" style="background: var(--info-bg);">
-             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-          </div>
-          <div class="stat-label">Ready for Submission</div>
-          <div class="stat-value" style="color: var(--info);">${totals.ready}</div>
-        </div>
-
-        <div class="stat-card fade-in fade-in-delay-3">
-          <div class="stat-icon" style="background: var(--warning-bg);">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          </div>
-          <div class="stat-label">Awaiting Payment</div>
-          <div class="stat-value" style="color: var(--warning);">${totals.awaiting}</div>
-        </div>
-
-        <div class="stat-card fade-in fade-in-delay-4">
-          <div class="stat-icon" style="background: var(--danger-bg);">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-          </div>
-          <div class="stat-label">System Errors</div>
-          <div class="stat-value" style="color: var(--danger);">${totals.errors}</div>
+          <p style="font-size: 0.95rem; font-weight: 800; margin-top: 4px; color: ${health.cac ? 'var(--success)' : 'var(--danger)'};">${health.cac ? 'PORTAL ONLINE' : 'PORTAL DOWN'}</p>
         </div>
       </div>
 
-      <div class="table-section fade-in" style="animation-delay: 0.3s; opacity: 0;">
-        <div class="table-header">
-          <h2>Recent Sessions</h2>
-          <div class="table-filter">
-            <button class="filter-chip active" onclick="window.location.href='/dashboard'">All</button>
-            <button class="filter-chip" onclick="window.location.href='/sessions?state=COLLECTING_DATA'">Collecting</button>
-            <button class="filter-chip" onclick="window.location.href='/sessions?state=AWAITING_PAYMENT'">Payment</button>
-            <button class="filter-chip" onclick="window.location.href='/sessions?state=PENDING_APPROVAL'">Review</button>
-            <button class="filter-chip" onclick="window.location.href='/sessions?state=ERROR'">Errors</button>
+      <div style="display: grid; grid-template-columns: 1fr 320px; gap: 24px;">
+        <div>
+          <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 24px;">
+            <div class="stat-card clickable-stat" onclick="filterState('COLLECTING_DATA')">
+              <div class="stat-label">In Intake</div>
+              <div class="stat-value">${totals.intake}</div>
+            </div>
+            <div class="stat-card clickable-stat" onclick="filterState('READY_FOR_SUBMISSION')" style="border-left: 4px solid var(--info);">
+              <div class="stat-label">Pending Automation</div>
+              <div class="stat-value" style="color: var(--info);">${totals.ready}</div>
+            </div>
+            <div class="stat-card clickable-stat" onclick="filterState('AWAITING_PAYMENT')" style="border-left: 4px solid var(--warning);">
+              <div class="stat-label">Awaiting Payment</div>
+              <div class="stat-value" style="color: var(--warning);">${totals.awaiting}</div>
+            </div>
+            <div class="stat-card clickable-stat" onclick="filterState('ERROR')" style="border-left: 4px solid var(--danger);">
+              <div class="stat-label">Critical Errors</div>
+              <div class="stat-value" style="color: var(--danger);">${totals.errors}</div>
+            </div>
+          </div>
+
+          <div class="table-section fade-in" style="animation-delay: 0.3s; opacity: 1;">
+            <div class="table-header">
+              <h2>Recent Sessions</h2>
+              <div class="table-filter">
+                <button class="filter-chip active" onclick="filterState('ALL')">All</button>
+                <button class="filter-chip" onclick="filterState('COLLECTING_DATA')">Collecting</button>
+                <button class="filter-chip" onclick="filterState('AWAITING_PAYMENT')">Payment</button>
+                <button class="filter-chip" onclick="filterState('ERROR')">Errors</button>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Client</th>
+                  <th>Status</th>
+                  <th>Workflow</th>
+                  <th>Type</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows || `
+                  <tr>
+                    <td colspan="6">
+                      <div class="empty-state">
+                        <p>No sessions found.</p>
+                      </div>
+                    </td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
           </div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Client</th>
-              <th>Status</th>
-              <th>Workflow</th>
-              <th>Type</th>
-              <th>Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || `
-              <tr>
-                <td colspan="6">
-                  <div class="empty-state">
-                    <div class="empty-state-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                    </div>
-                    <p style="font-weight: 600; margin-bottom: 4px;">No sessions yet</p>
-                    <p style="font-size: 0.8rem;">Sessions will appear here when clients start chatting on WhatsApp.</p>
-                  </div>
-                </td>
-              </tr>
-            `}
-          </tbody>
-        </table>
+        
+        <div style="background: white; border-radius: 20px; border: 1px solid var(--border); padding: 24px; position: sticky; top: 100px; height: fit-content;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h2 style="font-size: 1.1rem; font-weight: 800; margin: 0;">Queue Monitor</h2>
+            <div class="pulse-dot" style="background: var(--success); width: 10px; height: 10px;"></div>
+          </div>
+          ${queueRows}
+          
+          <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
+            <h3 style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px;">Active Workers</h3>
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--bg-elevated); border-radius: 10px;">
+              <div style="width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 0.7rem;">W1</div>
+              <div style="flex: 1;">
+                <div style="font-size: 0.75rem; font-weight: 700;">Worker #01</div>
+                <div style="font-size: 0.65rem; color: var(--success);">Poling Supabase...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        function filterState(state) {
+          const rows = document.querySelectorAll('.session-row');
+          rows.forEach(row => {
+            if (state === 'ALL' || row.dataset.state === state) {
+              row.style.display = 'table-row';
+            } else {
+              row.style.display = 'none';
+            }
+          });
+          
+          // Update chips
+          document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.classList.toggle('active', chip.textContent.toUpperCase().includes(state.replace(/_/g, ' ')));
+          });
+        }
+      </script>
       </div>
     </div>
   `, "overview");
