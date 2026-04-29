@@ -103,6 +103,21 @@ export class RegistrationOrchestrator {
     await this.handleClientMessage(message);
   }
 
+  async handleWebChat(userId: string, text: string): Promise<string> {
+    const message: NormalizedInboundMessage = {
+      messageId: `web:${randomUUID()}`,
+      from: userId,
+      to: "system",
+      text,
+      media: [],
+      provider: "mock",
+      timestamp: new Date().toISOString(),
+      profileName: "Web User"
+    };
+
+    return this.processMessage(message);
+  }
+
   async handleAgentMessage(from: string, text: string): Promise<void> {
     const command = extractAgentCommand(text);
     if (!command) {
@@ -268,6 +283,11 @@ export class RegistrationOrchestrator {
   }
 
   private async handleClientMessage(message: NormalizedInboundMessage): Promise<void> {
+    const reply = await this.processMessage(message);
+    await this.provider.sendTextMessage(message.from, reply);
+  }
+
+  private async processMessage(message: NormalizedInboundMessage): Promise<string> {
     let session = await this.store.getActiveByUser(message.from);
     if (!session) {
       session = this.createSession(message);
@@ -346,7 +366,8 @@ export class RegistrationOrchestrator {
 
     this.appendTurn(session, "assistant", outbound);
     await this.persist(session);
-    await this.provider.sendTextMessage(message.from, outbound);
+    return outbound;
+  }
 
     if (ready) {
       await this.jobScheduler.enqueueSubmission(session.id);

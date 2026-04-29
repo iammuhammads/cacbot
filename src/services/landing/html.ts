@@ -762,6 +762,137 @@ export function renderLandingPage(): string {
         box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
       }
 
+      /* ─── Web Chat Widget ─── */
+      .chat-widget {
+        position: fixed;
+        bottom: 32px;
+        right: 32px;
+        width: 380px;
+        height: 600px;
+        background: var(--card-bg);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        z-index: 1000;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        transform: translateY(20px);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .chat-widget.active {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: all;
+      }
+
+      .chat-header {
+        background: var(--text);
+        color: white;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .chat-header-info h4 {
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .chat-header-info p {
+        font-size: 0.72rem;
+        opacity: 0.7;
+      }
+
+      .chat-body {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .chat-msg {
+        max-width: 85%;
+        padding: 12px 16px;
+        border-radius: 16px;
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+
+      .chat-msg-bot {
+        background: white;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        border: 1px solid var(--border);
+      }
+
+      .chat-msg-user {
+        background: var(--accent);
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+      }
+
+      .chat-input-area {
+        padding: 16px;
+        background: white;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 10px;
+      }
+
+      .chat-input {
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-family: inherit;
+        font-size: 0.9rem;
+        outline: none;
+      }
+
+      .chat-input:focus { border-color: var(--accent); }
+
+      .chat-send {
+        background: var(--accent);
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+
+      .chat-toggle {
+        position: fixed;
+        bottom: 32px;
+        right: 32px;
+        width: 64px;
+        height: 64px;
+        background: var(--gradient-hero);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+        cursor: pointer;
+        z-index: 999;
+        transition: all 0.3s;
+      }
+
+      .chat-toggle:hover { transform: scale(1.05) translateY(-2px); }
+
       /* ─── FAQ ─── */
       .faq-section {
         padding: 100px 0;
@@ -1292,6 +1423,34 @@ export function renderLandingPage(): string {
       </div>
     </footer>
 
+    <!-- Chat Widget -->
+    <div class="chat-toggle" id="chat-toggle">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    </div>
+
+    <div class="chat-widget" id="chat-widget">
+      <div class="chat-header">
+        <div class="nav-logo-icon" style="width: 32px; height: 32px; background: white;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+        </div>
+        <div class="chat-header-info">
+          <h4 style="margin:0;">Elite Assistant</h4>
+          <p style="margin:0;">AI Registration Agent • Online</p>
+        </div>
+      </div>
+      <div class="chat-body" id="chat-body">
+        <div class="chat-msg chat-msg-bot">
+          Hello! I am your Elite Registration Assistant. I can help you register your business with the CAC in minutes. How can I help you today?
+        </div>
+      </div>
+      <form class="chat-input-area" id="chat-form">
+        <input type="text" class="chat-input" placeholder="Type your message..." id="chat-input">
+        <button type="submit" class="chat-send">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </form>
+    </div>
+
     <script
       async
       crossorigin="anonymous"
@@ -1300,6 +1459,68 @@ export function renderLandingPage(): string {
       type="text/javascript"
     ></script>
     <script>
+      // Web Chat Logic
+      const chatToggle = document.getElementById('chat-toggle');
+      const chatWidget = document.getElementById('chat-widget');
+      const chatForm = document.getElementById('chat-form');
+      const chatInput = document.getElementById('chat-input');
+      const chatBody = document.getElementById('chat-body');
+      
+      let userId = localStorage.getItem('chat_user_id') || null;
+
+      chatToggle.addEventListener('click', () => {
+        chatWidget.classList.toggle('active');
+        if (chatWidget.classList.contains('active')) {
+          chatInput.focus();
+        }
+      });
+
+      function addMessage(text, role) {
+        const msg = document.createElement('div');
+        msg.className = `chat-msg chat-msg-${role}`;
+        msg.textContent = text;
+        chatBody.appendChild(msg);
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+
+      chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        addMessage(text, 'user');
+        chatInput.value = '';
+        
+        // Show typing
+        const typing = document.createElement('div');
+        typing.className = 'chat-msg chat-msg-bot';
+        typing.textContent = '...';
+        chatBody.appendChild(typing);
+
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, userId })
+          });
+          const data = await res.json();
+          chatBody.removeChild(typing);
+          
+          if (data.ok) {
+            addMessage(data.text, 'bot');
+            if (data.userId) {
+              userId = data.userId;
+              localStorage.setItem('chat_user_id', userId);
+            }
+          } else {
+            addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+          }
+        } catch (err) {
+          if (typing.parentNode) chatBody.removeChild(typing);
+          addMessage('Network error. Please check your connection.', 'bot');
+        }
+      });
+
       // Clerk auth integration
       async function initClerkOnLanding() {
         try {

@@ -243,6 +243,26 @@ export async function buildApp(env: Env) {
     return session;
   });
 
+  app.post("/api/chat", async (request, reply) => {
+    const body = (request.body ?? {}) as { text: string; userId?: string };
+    if (!body.text) return reply.code(400).send({ error: "Text is required." });
+    
+    // Generate or use provided userId (for web chat we use a 'web:' prefix)
+    const userId = body.userId || `web:${randomUUID()}`;
+    
+    try {
+      const response = await orchestrator.handleWebChat(userId, body.text);
+      return { 
+        ok: true, 
+        text: response,
+        userId: userId
+      };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ error: "Chat processing failed." });
+    }
+  });
+
   app.get("/dashboard", { preHandler: [requireAuth] }, async (_request, reply) => {
     const sessions = await orchestrator.listSessions();
     
