@@ -8,6 +8,7 @@ export interface SessionStore {
   save(session: SessionRecord): Promise<void>;
   listByState(state?: SessionState): Promise<SessionRecord[]>;
   findAwaitingPaymentByAgent(agentPhone: string): Promise<SessionRecord[]>;
+  checkConnection(): Promise<boolean>;
 }
 
 function isTerminalState(state: SessionState): boolean {
@@ -47,6 +48,10 @@ export class InMemorySessionStore implements SessionStore {
       (session) =>
         session.assignedAgent === agentPhone && session.state === "AWAITING_PAYMENT"
     );
+  }
+
+  async checkConnection(): Promise<boolean> {
+    return true;
   }
 }
 
@@ -147,6 +152,15 @@ export class SupabaseSessionStore implements SessionStore {
       updatedAt: row.updated_at,
       createdAt: row.created_at
     };
+  }
+
+  async checkConnection(): Promise<boolean> {
+    try {
+      const { error } = await this.client.from("sessions").select("id").limit(1);
+      return !error;
+    } catch {
+      return false;
+    }
   }
 }
 

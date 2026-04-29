@@ -1085,7 +1085,7 @@ function layout(title: string, body: string, activePage: string = "overview"): s
 </html>`;
 }
 
-export function renderDashboardIndex(sessions: SessionRecord[]): string {
+export function renderDashboardIndex(sessions: SessionRecord[], health: { db: boolean; worker: boolean }): string {
   const totals = {
     total: sessions.length,
     intake: sessions.filter((s) => !["COMPLETED", "ERROR", "AWAITING_PAYMENT", "READY_FOR_SUBMISSION", "SUBMITTING", "PAYMENT_CONFIRMED"].includes(s.state)).length,
@@ -1137,8 +1137,8 @@ export function renderDashboardIndex(sessions: SessionRecord[]): string {
       </div>
       <div class="topbar-right">
         <div class="system-status">
-          <div class="pulse-dot"></div>
-          System Online
+          <div class="pulse-dot" style="background: ${health.db && health.worker ? 'var(--success)' : 'var(--danger)'};"></div>
+          System ${health.db && health.worker ? 'Healthy' : 'Issues Detected'}
         </div>
       </div>
     </div>
@@ -1148,17 +1148,17 @@ export function renderDashboardIndex(sessions: SessionRecord[]): string {
       <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 32px;">
         <div class="stat-card fade-in" style="padding: 16px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="pulse-dot"></div>
+            <div class="pulse-dot" style="background: ${health.db ? 'var(--success)' : 'var(--danger)'};"></div>
             <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Database</span>
           </div>
-          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: var(--success); letter-spacing: -0.02em;">SUPABASE ONLINE</p>
+          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: ${health.db ? 'var(--success)' : 'var(--danger)'}; letter-spacing: -0.02em;">${health.db ? 'SUPABASE ONLINE' : 'DISCONNECTED'}</p>
         </div>
         <div class="stat-card fade-in fade-in-delay-1" style="padding: 16px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <div class="pulse-dot" style="background: var(--info);"></div>
+            <div class="pulse-dot" style="background: ${health.worker ? 'var(--success)' : 'var(--danger)'};"></div>
             <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Worker</span>
           </div>
-          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: var(--info); letter-spacing: -0.02em;">POLLING ACTIVE</p>
+          <p style="font-size: 1.1rem; font-weight: 800; margin-top: 6px; color: ${health.worker ? 'var(--success)' : 'var(--danger)'}; letter-spacing: -0.02em;">${health.worker ? 'POLLING ACTIVE' : 'STOPPED'}</p>
         </div>
         <div class="stat-card fade-in fade-in-delay-2" style="padding: 16px;">
           <div style="display: flex; align-items: center; gap: 10px;">

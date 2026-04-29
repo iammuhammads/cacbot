@@ -245,7 +245,14 @@ export async function buildApp(env: Env) {
 
   app.get("/dashboard", { preHandler: [requireAuth] }, async (_request, reply) => {
     const sessions = await orchestrator.listSessions();
-    return reply.type("text/html").send(renderDashboardIndex(sessions));
+    
+    // Dynamic Health Check
+    const dbHealth = await store.checkConnection();
+    
+    return reply.type("text/html").send(renderDashboardIndex(sessions, { 
+      db: dbHealth, 
+      worker: true // Since it's in-process, if this route is hit, it's running
+    }));
   });
 
   app.get("/dashboard/:sessionId", { preHandler: [requireAuth] }, async (request, reply) => {
