@@ -34,10 +34,12 @@ export function getRuntimeCheckReport(env: Env): RuntimeCheckReport {
     missing.push("REDIS_URL");
   }
 
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
+    missing.push("SUPABASE_URL", "SUPABASE_SERVICE_KEY");
+  }
+
   if (!env.ANTHROPIC_API_KEY) {
-    warnings.push(
-      "ANTHROPIC_API_KEY is not set. Claude brain will not be available."
-    );
+    missing.push("ANTHROPIC_API_KEY");
   }
 
   if (!env.CAC_EMAIL || !env.CAC_PASSWORD) {
