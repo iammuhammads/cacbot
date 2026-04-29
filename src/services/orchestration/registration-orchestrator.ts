@@ -112,7 +112,8 @@ export class RegistrationOrchestrator {
       media: [],
       provider: "mock",
       timestamp: new Date().toISOString(),
-      profileName: "Web User"
+      profileName: "Web User",
+      raw: {}
     };
 
     return this.processMessage(message);
@@ -319,21 +320,17 @@ export class RegistrationOrchestrator {
         }
       };
       await this.persist(session);
-      await this.provider.sendTextMessage(
-        message.from,
-        `I detected "${otpCandidate}" as your CAC login code. Is this correct? Reply "YES" to confirm.`
-      );
-      return;
+      const reply = `I detected "${otpCandidate}" as your CAC login code. Is this correct? Reply "YES" to confirm.`;
+      return reply;
     }
 
     if (inboundText.toUpperCase() === "YES" && session.collectedData.portal?.pendingManualOtp?.confirmed === false) {
-      const manual = session.collectedData.portal.pendingManualOtp;
+      const manual = session.collectedData.portal.pendingManualOtp!;
       manual.confirmed = true;
       this.setState(session, "READY_FOR_SUBMISSION", "manual_otp_confirmed");
       await this.persist(session);
-      await this.provider.sendTextMessage(message.from, "Confirming code. Resuming your registration now! 🚀");
       await this.jobScheduler.enqueueSubmission(session.id, 1); // Resume with HIGH PRIORITY
-      return;
+      return "Confirming code. Resuming your registration now! 🚀";
     }
 
     this.appendTurn(session, "client", inboundText);
@@ -367,11 +364,6 @@ export class RegistrationOrchestrator {
     this.appendTurn(session, "assistant", outbound);
     await this.persist(session);
     return outbound;
-  }
-
-    if (ready) {
-      await this.jobScheduler.enqueueSubmission(session.id);
-    }
   }
 
   async submitReadySession(sessionId: string): Promise<void> {

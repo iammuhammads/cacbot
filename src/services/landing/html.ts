@@ -1477,7 +1477,7 @@ export function renderLandingPage(): string {
 
       function addMessage(text, role) {
         const msg = document.createElement('div');
-        msg.className = `chat-msg chat-msg-${role}`;
+        msg.className = 'chat-msg chat-msg-' + role;
         msg.textContent = text;
         chatBody.appendChild(msg);
         chatBody.scrollTop = chatBody.scrollHeight;

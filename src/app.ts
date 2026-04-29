@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import Fastify from "fastify";
 import formBody from "@fastify/formbody";
 import multipart from "@fastify/multipart";
