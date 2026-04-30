@@ -245,54 +245,53 @@ const llmResponseJsonSchema = {
         notes: {
           type: ["array", "null"],
           items: { type: "string" }
-        }
-      ,
-      postIncData: {
-        type: ["object", "null"],
-        additionalProperties: false,
-        properties: {
-          existingRcNumber: { type: ["string", "null"] },
-          existingName: { type: ["string", "null"] },
-          changeDetails: { type: ["string", "null"] },
-          proposedNames: {
-            type: ["array", "null"],
-            items: { type: "string" }
-          },
-          newDirectors: {
-            type: ["array", "null"],
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                fullName: { type: ["string", "null"] },
-                dob: { type: ["string", "null"] },
-                nationality: { type: ["string", "null"] },
-                email: { type: ["string", "null"] },
-                phone: { type: ["string", "null"] },
-                residentialAddress: {
-                  type: ["object", "null"],
-                  additionalProperties: false,
-                  properties: {
-                    line1: { type: ["string", "null"] },
-                    line2: { type: ["string", "null"] },
-                    city: { type: ["string", "null"] },
-                    lga: { type: ["string", "null"] },
-                    state: { type: ["string", "null"] },
-                    country: { type: ["string", "null"] }
-                  }
-                },
-                idType: { type: ["string", "null"] },
-                idNumber: { type: ["string", "null"] },
-                role: { type: ["string", "null"] }
+        },
+        postIncData: {
+          type: ["object", "null"],
+          additionalProperties: false,
+          properties: {
+            existingRcNumber: { type: ["string", "null"] },
+            existingName: { type: ["string", "null"] },
+            changeDetails: { type: ["string", "null"] },
+            proposedNames: {
+              type: ["array", "null"],
+              items: { type: "string" }
+            },
+            newDirectors: {
+              type: ["array", "null"],
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  fullName: { type: ["string", "null"] },
+                  dob: { type: ["string", "null"] },
+                  nationality: { type: ["string", "null"] },
+                  email: { type: ["string", "null"] },
+                  phone: { type: ["string", "null"] },
+                  residentialAddress: {
+                    type: ["object", "null"],
+                    additionalProperties: false,
+                    properties: {
+                      line1: { type: ["string", "null"] },
+                      line2: { type: ["string", "null"] },
+                      city: { type: ["string", "null"] },
+                      lga: { type: ["string", "null"] },
+                      state: { type: ["string", "null"] },
+                      country: { type: ["string", "null"] }
+                    }
+                  },
+                  idType: { type: ["string", "null"] },
+                  idNumber: { type: ["string", "null"] },
+                  role: { type: ["string", "null"] }
+                }
               }
+            },
+            removedDirectorNames: {
+              type: ["array", "null"],
+              items: { type: "string" }
             }
-          },
-          removedDirectorNames: {
-            type: ["array", "null"],
-            items: { type: "string" }
           }
         }
-      }
       }
     },
     missingFields: {
