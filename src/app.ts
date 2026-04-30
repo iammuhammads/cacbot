@@ -260,7 +260,11 @@ export async function buildApp(env: Env) {
       };
     } catch (err) {
       request.log.error(err);
-      return reply.code(500).send({ error: "Chat processing failed." });
+      return reply.code(500).send({ 
+        ok: false, 
+        error: err instanceof Error ? err.message : String(err),
+        tip: "Check your Render Environment Variables for ANTHROPIC_API_KEY"
+      });
     }
   });
 

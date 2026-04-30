@@ -1513,7 +1513,7 @@ export function renderLandingPage(): string {
               localStorage.setItem('chat_user_id', userId);
             }
           } else {
-            addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+            addMessage('Error: ' + (data.error || 'Unknown error') + '. ' + (data.tip || ''), 'bot');
           }
         } catch (err) {
           if (typing.parentNode) chatBody.removeChild(typing);

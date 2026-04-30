@@ -435,6 +435,14 @@ function layout(title: string, body: string, activePage: string = "overview"): s
       .stat-card:nth-child(2)::after { background: var(--success); }
       .stat-card:nth-child(3)::after { background: var(--warning); }
       .stat-card:nth-child(4)::after { background: var(--danger); }
+      
+      .clickable-stat {
+        cursor: pointer;
+        user-select: none;
+      }
+      .clickable-stat:active {
+        transform: scale(0.98);
+      }
 
       .stat-icon {
         width: 40px;
@@ -1046,7 +1054,7 @@ function layout(title: string, body: string, activePage: string = "overview"): s
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
           Overview
         </a>
-        <a href="/queue/status" class="nav-item" id="nav-queue">
+        <a href="javascript:void(0)" onclick="filterState('READY_FOR_SUBMISSION')" class="nav-item" id="nav-queue">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
           Queue Monitor
         </a>
@@ -1056,9 +1064,9 @@ function layout(title: string, body: string, activePage: string = "overview"): s
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           AI Config
         </a>
-        <a href="/health/config" class="nav-item" id="nav-health">
+        <a href="javascript:void(0)" onclick="window.scrollTo({top:0, behavior:'smooth'})" class="nav-item" id="nav-health">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M12 6v6l4 2"></path></svg>
-          Health
+          Health Check
         </a>
       </nav>
 
@@ -1188,7 +1196,7 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 320px; gap: 24px;">
+      <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px;">
         <div>
           <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 24px;">
             <div class="stat-card clickable-stat" onclick="filterState('COLLECTING_DATA')">
@@ -1269,7 +1277,7 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
         function filterState(state) {
           const rows = document.querySelectorAll('.session-row');
           rows.forEach(row => {
-            if (state === 'ALL' || row.dataset.state === state) {
+            if (state === 'ALL' || row.dataset.state === state || (state === 'READY_FOR_SUBMISSION' && row.dataset.state === 'SUBMITTING')) {
               row.style.display = 'table-row';
             } else {
               row.style.display = 'none';
@@ -1278,7 +1286,9 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
           
           // Update chips
           document.querySelectorAll('.filter-chip').forEach(chip => {
-            chip.classList.toggle('active', chip.textContent.toUpperCase().includes(state.replace(/_/g, ' ')));
+            const text = chip.textContent.toUpperCase();
+            const target = state.split('_')[0]; // Simple match for 'Collecting', 'Payment', etc.
+            chip.classList.toggle('active', text.includes(target) || (state === 'ALL' && text === 'ALL'));
           });
         }
       </script>
