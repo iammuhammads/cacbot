@@ -473,6 +473,8 @@ export class RegistrationIntakeService {
   ): Promise<IntakeDecision> {
     const client = this.anthropic;
     if (!client) throw new Error("Anthropic client not initialized.");
+    
+    console.log(`[AI] Processing turn with model: "${this.env.ANTHROPIC_MODEL}"`);
 
     const validation = validateRegistrationData(session.collectedData);
     const recentTurns = session.history.slice(-10).map((turn) => ({
