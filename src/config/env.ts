@@ -74,12 +74,15 @@ const parsed = envSchema.parse(envData);
 
 export const env = {
   ...parsed,
+  ANTHROPIC_API_KEY: parsed.ANTHROPIC_API_KEY?.trim(),
+  ANTHROPIC_MODEL: parsed.ANTHROPIC_MODEL?.trim(),
+  SUPABASE_URL: parsed.SUPABASE_URL?.trim(),
+  SUPABASE_SERVICE_KEY: parsed.SUPABASE_SERVICE_KEY?.trim(),
   agentPhoneNumbers: parsed.AGENT_PHONE_NUMBERS
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
-  whatsappProvider: parsed.WHATSAPP_PROVIDER as WhatsAppProviderName
-  ,
+  whatsappProvider: parsed.WHATSAPP_PROVIDER as WhatsAppProviderName,
   secretsBackend: parsed.SECRETS_BACKEND
 };
 
