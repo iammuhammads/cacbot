@@ -374,8 +374,12 @@ export class RegistrationIntakeService {
     inboundText: string,
     profileName?: string
   ): Promise<IntakeDecision> {
-    if (this.anthropic) {
-      return this.processWithClaude(session, inboundText, profileName);
+    try {
+      if (this.anthropic) {
+        return await this.processWithClaude(session, inboundText, profileName);
+      }
+    } catch (err) {
+      console.error("[AI] Anthropic failed, trying fallback...", err);
     }
 
     if (this.openai) {
