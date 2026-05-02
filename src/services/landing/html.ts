@@ -9,7 +9,7 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#39;");
 }
 
-export function renderLandingPage(): string {
+export function renderLandingPage(env: any): string {
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -1348,6 +1348,70 @@ export function renderLandingPage(): string {
               WhatsApp agent commands
             </li>
           </ul>
+
+    <section class="comparison-section reveal">
+      <div class="container">
+        <div class="section-tag">Comparison</div>
+        <h2 class="section-title">The Asbestos Edge</h2>
+        <div class="comparison-grid">
+          <div class="comparison-card">
+            <div class="comp-header">Manual Agents</div>
+            <ul class="comp-list">
+              <li>❌ Slow response times (days)</li>
+              <li>❌ Manual data entry errors</li>
+              <li>❌ Expensive "hidden" fees</li>
+              <li>❌ Zero visibility on portal status</li>
+            </ul>
+          </div>
+          <div class="comparison-card featured">
+            <div class="comp-header">Asbestos AI</div>
+            <ul class="comp-list">
+              <li>✅ Instant intake via WhatsApp</li>
+              <li>✅ 100% Data accuracy (AI-validated)</li>
+              <li>✅ Flat, transparent pricing</li>
+              <li>✅ Real-time Portal Sync & Dashboard</li>
+            </ul>
+          </div>
+          <div class="comparison-card">
+            <div class="comp-header">Generic Apps</div>
+            <ul class="comp-list">
+              <li>❌ Robotic, complex 20-page forms</li>
+              <li>❌ No nuance for complex filings</li>
+              <li>❌ Static help documents only</li>
+              <li>❌ Often miss Nigerian context</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <style>
+      .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-top: 3rem;
+      }
+      .comparison-card {
+        background: white;
+        padding: 2.5rem;
+        border-radius: 1.5rem;
+        border: 1px solid rgba(0,0,0,0.05);
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .comparison-card:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.04); }
+      .comparison-card.featured {
+        background: var(--bg-dark);
+        color: white;
+        border: 1px solid var(--accent);
+        box-shadow: 0 30px 60px rgba(99, 102, 241, 0.15);
+      }
+      .comp-header { font-weight: 800; font-size: 1.5rem; margin-bottom: 2rem; }
+      .comp-list { list-style: none; padding: 0; margin: 0; }
+      .comp-list li { margin-bottom: 1rem; font-weight: 500; opacity: 0.8; font-size: 0.95rem; }
+      .featured .comp-list li { opacity: 1; }
+    </style>
+ 
           <a href="/dashboard" class="btn-pricing auth-trigger">
             Get Started Free
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -1478,7 +1542,15 @@ export function renderLandingPage(): string {
       function addMessage(text, role) {
         const msg = document.createElement('div');
         msg.className = 'chat-msg chat-msg-' + role;
-        msg.textContent = text;
+        
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        msg.innerHTML = `
+          <div class="msg-text">\${text}</div>
+          <div class="msg-time" style="font-size: 0.65rem; opacity: 0.5; margin-top: 4px; text-align: \${role === 'user' ? 'right' : 'left'}">\${timeStr}</div>
+        `;
+        
         chatBody.appendChild(msg);
         chatBody.scrollTop = chatBody.scrollHeight;
       }

@@ -1287,10 +1287,15 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
           // Update chips
           document.querySelectorAll('.filter-chip').forEach(chip => {
             const text = chip.textContent.toUpperCase();
-            const target = state.split('_')[0]; // Simple match for 'Collecting', 'Payment', etc.
+            const target = state.split('_')[0]; 
             chip.classList.toggle('active', text.includes(target) || (state === 'ALL' && text === 'ALL'));
           });
         }
+
+        // Auto-refresh every 60 seconds to keep live data flowing
+        setTimeout(() => {
+          window.location.reload();
+        }, 60000);
       </script>
       </div>
     </div>
