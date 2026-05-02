@@ -163,7 +163,7 @@ export async function buildApp(env: Env) {
   });
 
   app.get("/", async (_request, reply) => {
-    return reply.type("text/html").send(renderLandingPage());
+    return reply.type("text/html").send(renderLandingPage(env));
   });
 
   app.post("/webhooks/whatsapp", {

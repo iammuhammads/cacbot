@@ -648,7 +648,7 @@ export class RegistrationIntakeService {
       `Perfect. Just send me your ${describeMissingTargets(validation.missingFields)} and I'll get the filing ready.`,
       `Thanks! Once I have the ${describeMissingTargets(validation.missingFields)}, we'll be all set for the CAC portal.`
     ];
-    const randomReply = humanReplies[Math.floor(Math.random() * humanReplies.length)];
+    const randomReply = humanReplies[Math.floor(Math.random() * humanReplies.length)] as string;
 
     return {
       reply: validation.ready
