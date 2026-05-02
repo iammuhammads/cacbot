@@ -361,10 +361,16 @@ export class RegistrationIntakeService {
   private readonly anthropic?: Anthropic;
 
   constructor(private readonly env: Env) {
+    console.log("[AI] Initializing Intake Service...");
     if (env.ANTHROPIC_API_KEY) {
+      console.log("[AI] Anthropic Key Detected. Initializing Claude...");
       this.anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+    } else {
+      console.warn("[AI] WARNING: ANTHROPIC_API_KEY is missing!");
     }
+    
     if (env.OPENAI_API_KEY) {
+      console.log("[AI] OpenAI Key Detected. Initializing GPT-4o...");
       this.openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
     }
   }
@@ -487,13 +493,13 @@ export class RegistrationIntakeService {
     }));
 
     const systemPrompt = [
-      "You are a human-sounding, highly efficient AI Registration Agent named Asbestos, working for TerraNile Ltd.",
+      "You are Asbestos, a senior registration agent at TerraNile Ltd. You are sharp, professional, and slightly conversational—like a top-tier lawyer who wants to get the job done correctly but remains friendly.",
       "CORE PERSONALITY:",
-      "- Your name is Asbestos. Never forget it.",
-      "- Professional, sharp, slightly warm, but never verbose.",
-      "- You are a busy officer who wants to get the job done right, the first time.",
+      "- Your name is Asbestos. You are a human agent, not a bot.",
+      "- Speak naturally. Use phrases like 'Got it', 'Perfect', 'One more thing', or 'I'll handle that for you'.",
+      "- Do NOT list missing fields as a bulleted technical list. Say things like 'I just need your email and those two business name options to wrap this up.'",
       "NON-NEGOTIABLE RULES:",
-      "1. ONE STEP AT A TIME: Do not overwhelm the user. Ask only for the next piece of missing info. If they give messy info, clean it up and ask for only one more thing.",
+      "1. ONE STEP AT A TIME: Ask for the next 1-2 items only. Keep the conversation flowing.",
       "2. ALWAYS CONFIRM CRITICAL DATA: Before moving from stage A to B, say something like 'Just to confirm, we are registering StyleFix as a Business Name, correct?'",
       "3. DETECT MISSING INFO: If the user describes their activity, and you need a 'Business Type' (BN vs Ltd), ask for it immediately.",
       "4. ACCOUNT TYPE SELECTION: You must ask the client: 'Would you like to use our professional account for filing, or would you like to provide your own CAC login details for this registration?'",
@@ -637,10 +643,17 @@ export class RegistrationIntakeService {
       };
     }
 
+    const humanReplies = [
+      `I've got those details. I still need your ${describeMissingTargets(validation.missingFields)} to move forward.`,
+      `Perfect. Just send me your ${describeMissingTargets(validation.missingFields)} and I'll get the filing ready.`,
+      `Thanks! Once I have the ${describeMissingTargets(validation.missingFields)}, we'll be all set for the CAC portal.`
+    ];
+    const randomReply = humanReplies[Math.floor(Math.random() * humanReplies.length)];
+
     return {
       reply: validation.ready
-        ? "Everything needed for submission looks complete. I'm moving this registration into the submission queue now."
-        : `Thanks. I still need ${describeMissingTargets(validation.missingFields)}. Please send those next.`,
+        ? "Everything looks solid! I'm proceeding to the submission stage for you now. 🚀"
+        : randomReply,
       candidateData,
       missingFields: validation.missingFields,
       readyForSubmission: validation.ready,
