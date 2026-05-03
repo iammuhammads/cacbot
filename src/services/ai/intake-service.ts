@@ -643,26 +643,31 @@ export class RegistrationIntakeService {
       };
     }
 
-    const humanReplies = [
-      `I've got those details. I still need your ${describeMissingTargets(validation.missingFields)} to move forward.`,
-      `Perfect. Just send me your ${describeMissingTargets(validation.missingFields)} and I'll get the filing ready.`,
-      `Thanks! Once I have the ${describeMissingTargets(validation.missingFields)}, we'll be all set for the CAC portal.`
-    ];
-    const randomReply = humanReplies[Math.floor(Math.random() * humanReplies.length)] as string;
+    const isNew = !session.collectedData.registrationType && !session.collectedData.clientName && !candidateData.registrationType;
+    
+    let replyText = "";
+    if (validation.ready) {
+      replyText = "Everything looks solid! I'm proceeding to the submission stage for you now. 🚀";
+    } else if (isNew) {
+      replyText = "Hello! I am Asbestos, your Elite Registration Agent. Are you looking to register a Business Name, a Company, or Incorporated Trustees?";
+    } else {
+      const humanReplies = [
+        `I've got those details. I still need your ${describeMissingTargets(validation.missingFields)} to move forward.`,
+        `Perfect. Just send me your ${describeMissingTargets(validation.missingFields)} and I'll get the filing ready.`,
+        `Thanks! Once I have the ${describeMissingTargets(validation.missingFields)}, we'll be all set for the CAC portal.`
+      ];
+      replyText = humanReplies[Math.floor(Math.random() * humanReplies.length)] as string;
+    }
 
     return {
-      reply: validation.ready
-        ? "Everything looks solid! I'm proceeding to the submission stage for you now. 🚀"
-        : randomReply,
+      reply: replyText,
       candidateData,
       missingFields: validation.missingFields,
       readyForSubmission: validation.ready,
       stateSuggestion: validation.ready ? "READY_FOR_SUBMISSION" : "COLLECTING_DATA",
       needsHuman: false,
-      confidence: 0.4,
-      summary: validation.ready
-        ? "Heuristic flow marked the dossier as ready."
-        : "Heuristic flow collected partial data."
+      confidence: 0.45,
+      summary: validation.ready ? "Heuristics marked ready." : "Heuristics collected partial data."
     };
   }
 }
