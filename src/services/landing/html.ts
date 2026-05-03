@@ -295,7 +295,10 @@ export function renderLandingPage(env: any): string {
             el.addEventListener('click', (e) => {
               if (!window.Clerk.user) {
                 e.preventDefault();
-                window.Clerk.openSignIn({ afterSignInUrl: '/dashboard' });
+                window.Clerk.openSignIn({ 
+                  afterSignInUrl: '/dashboard',
+                  afterSignUpUrl: '/dashboard'
+                });
               } else {
                 window.location.href = '/dashboard';
               }
