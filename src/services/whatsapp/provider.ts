@@ -73,6 +73,7 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
     rawUrl: string;
   }): boolean {
     if (!this.env.TWILIO_VALIDATE_SIGNATURE) {
+      console.log("[twilio-provider] Signature validation is DISABLED (TWILIO_VALIDATE_SIGNATURE=false). Skipping check.");
       return true;
     }
 

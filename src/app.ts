@@ -178,7 +178,9 @@ export async function buildApp(env: Env) {
       }
     }
   }, async (request, reply) => {
+    console.log(`[webhook] Received WhatsApp message from provider: ${provider.name}`);
     if (provider.validateInboundRequest) {
+      console.log(`[webhook] Validating signature for ${request.url}...`);
       const valid = provider.validateInboundRequest({
         body: request.body,
         headers: request.headers as Record<string, string | string[] | undefined>,
@@ -186,11 +188,13 @@ export async function buildApp(env: Env) {
       });
 
       if (!valid) {
+        console.error(`[webhook] Signature validation FAILED for ${request.url}`);
         return reply.code(403).send({
           ok: false,
           error: "Invalid webhook signature."
         });
       }
+      console.log(`[webhook] Signature validation PASSED.`);
     }
 
     const inbound = await provider.parseInbound(
@@ -198,7 +202,10 @@ export async function buildApp(env: Env) {
       request.headers as Record<string, string | string[] | undefined>
     );
 
+    console.log(`[webhook] Parsed ${inbound.length} messages.`);
+
     for (const message of inbound) {
+      console.log(`[webhook] Handling message from ${message.from}: ${message.text?.slice(0, 20)}...`);
       await orchestrator.handleInbound(message);
     }
 
