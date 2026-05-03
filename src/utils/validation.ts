@@ -90,6 +90,11 @@ export function validateRegistrationData(data: RegistrationData): ValidationResu
 
   if (!data.registrationType) {
     missingFields.push("registrationType");
+    return {
+      ready: false,
+      missingFields,
+      issues
+    };
   }
 
   if (data.businessNameOptions.length < 2) {
