@@ -319,18 +319,20 @@ export function renderChatPage(env: any): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Chat | TerraNile Agent</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <title>Agent Workspace | TerraNile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
-        --bg-main: #f0fdf4; /* Very light green */
-        --bg-sidebar: #064e3b; /* Very dark green */
-        --bg-panel: #ffffff;
-        --text-main: #0f172a;
+        --bg-main: #06080f;
+        --bg-sidebar: #0c0f1a;
+        --bg-panel: #0a0d16;
+        --text-main: #f8fafc;
         --text-muted: #64748b;
-        --accent: #10b981; /* Emerald */
+        --text-faded: #334155;
+        --accent: #10b981;
+        --accent-glow: rgba(16, 185, 129, 0.15);
         --accent-dark: #059669;
-        --border: #e2e8f0;
+        --border: rgba(56, 68, 100, 0.3);
       }
 
       * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
@@ -340,58 +342,102 @@ export function renderChatPage(env: any): string {
         height: 100vh;
         overflow: hidden;
         background: var(--bg-main);
+        background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.05) 0%, transparent 60%);
+        color: var(--text-main);
       }
 
       /* Sidebar */
       .sidebar {
-        width: 260px;
+        width: 280px;
         background: var(--bg-sidebar);
-        color: white;
+        border-right: 1px solid var(--border);
         display: flex;
         flex-direction: column;
-        padding: 16px;
+        padding: 24px 16px;
+        z-index: 10;
       }
+
+      .logo {
+        font-weight: 800;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: white;
+        margin-bottom: 32px;
+        padding-left: 8px;
+        letter-spacing: -0.5px;
+      }
+      .logo svg { color: var(--accent); }
 
       .new-chat {
         display: flex;
         align-items: center;
         gap: 10px;
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: white;
-        padding: 12px;
-        border-radius: 8px;
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        color: var(--accent);
+        padding: 12px 16px;
+        border-radius: 12px;
         cursor: pointer;
-        font-weight: 500;
-        transition: background 0.2s;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.2s;
       }
-      .new-chat:hover { background: rgba(255,255,255,0.2); }
+      .new-chat:hover {
+        background: rgba(16, 185, 129, 0.2);
+        box-shadow: 0 0 15px var(--accent-glow);
+        transform: translateY(-1px);
+      }
+
+      .history-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin: 32px 0 12px 8px;
+        font-weight: 700;
+      }
 
       .history {
-        margin-top: 24px;
         flex: 1;
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
+      .history::-webkit-scrollbar { width: 4px; }
+      .history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
       .history-item {
-        padding: 10px;
-        border-radius: 6px;
-        color: #d1fae5;
+        padding: 12px 16px;
+        border-radius: 10px;
+        color: var(--text-muted);
         font-size: 0.9rem;
         cursor: pointer;
-        margin-bottom: 4px;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        transition: all 0.2s;
+        border: 1px solid transparent;
       }
-      .history-item:hover { background: rgba(255,255,255,0.1); }
+      .history-item:hover {
+        background: rgba(255,255,255,0.03);
+        color: white;
+        border-color: rgba(255,255,255,0.05);
+      }
 
       .sidebar-footer {
         margin-top: auto;
-        padding-top: 16px;
-        border-top: 1px solid rgba(255,255,255,0.1);
+        padding-top: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
-      .back-home {
-        color: #a7f3d0; text-decoration: none; font-size: 0.9rem;
-        display: flex; align-items: center; gap: 8px;
+      .footer-link {
+        color: var(--text-muted); text-decoration: none; font-size: 0.9rem;
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 16px; border-radius: 10px; transition: all 0.2s;
       }
+      .footer-link:hover { background: rgba(255,255,255,0.05); color: white; }
 
       /* Chat Main Area */
       .chat-container {
@@ -399,111 +445,127 @@ export function renderChatPage(env: any): string {
         display: flex;
         flex-direction: column;
         background: var(--bg-panel);
-        border-top-left-radius: 24px;
-        border-bottom-left-radius: 24px;
-        box-shadow: -4px 0 24px rgba(0,0,0,0.05);
+        position: relative;
       }
 
       .chat-header {
-        padding: 20px 32px;
-        border-bottom: 1px solid var(--border);
+        padding: 24px 40px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        background: rgba(10, 13, 22, 0.8);
+        backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--border);
+        position: sticky; top: 0; z-index: 50;
       }
-      .chat-title { font-weight: 600; color: var(--text-main); }
-      .agent-status { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--accent-dark); background: #d1fae5; padding: 4px 12px; border-radius: 100px; font-weight: 500; }
-      .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: blink 2s infinite; }
-      @keyframes blink { 50% { opacity: 0.3; } }
+      .chat-title { font-weight: 600; color: white; font-size: 1.1rem; }
+      .agent-status {
+        display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--accent);
+        background: rgba(16, 185, 129, 0.1); padding: 6px 14px; border-radius: 100px; font-weight: 600;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+      }
+      .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+      @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); } 50% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } }
 
       .messages {
         flex: 1;
         overflow-y: auto;
-        padding: 32px;
+        padding: 40px;
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 32px;
+        scroll-behavior: smooth;
       }
 
       .message {
         display: flex;
-        gap: 16px;
-        max-width: 800px;
+        gap: 20px;
+        max-width: 860px;
         margin: 0 auto;
         width: 100%;
       }
       .message.user { flex-direction: row-reverse; }
 
       .avatar {
-        width: 36px; height: 36px;
-        border-radius: 10px;
+        width: 40px; height: 40px;
+        border-radius: 12px;
         display: flex; align-items: center; justify-content: center;
         flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       }
-      .bot .avatar { background: var(--accent); color: white; }
-      .user .avatar { background: #cbd5e1; color: white; }
+      .bot .avatar { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+      .user .avatar { background: #1e293b; color: white; border: 1px solid var(--border); }
 
       .bubble {
-        padding: 16px 20px;
-        border-radius: 16px;
-        font-size: 1rem;
+        padding: 16px 24px;
+        border-radius: 20px;
+        font-size: 1.05rem;
         line-height: 1.6;
         color: var(--text-main);
-        background: #f1f5f9;
+      }
+      .bot .bubble {
+        background: transparent;
+        color: var(--text-main);
       }
       .user .bubble {
-        background: var(--accent);
+        background: #1e293b;
         color: white;
+        border: 1px solid var(--border);
+        border-top-right-radius: 4px;
       }
 
       /* Visual Loader */
       .loader-container {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        padding: 16px;
-        border-radius: 12px;
+        gap: 12px;
+        background: #0f1423;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        padding: 20px;
+        border-radius: 16px;
         width: 100%;
-        max-width: 300px;
-        margin-top: 8px;
+        max-width: 320px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
       }
-      .loader-text { font-size: 0.85rem; color: var(--accent-dark); font-weight: 500; display: flex; align-items: center; gap: 8px; }
-      .loader-bar { width: 100%; height: 4px; background: #e2e8f0; border-radius: 4px; overflow: hidden; position: relative; }
-      .loader-progress { position: absolute; left: 0; top: 0; bottom: 0; width: 30%; background: var(--accent); animation: loading 1.5s infinite ease-in-out; }
-      @keyframes loading { 0% { left: -30%; } 100% { left: 100%; } }
+      .loader-text { font-size: 0.9rem; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 10px; }
+      .loader-bar { width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; position: relative; }
+      .loader-progress { position: absolute; left: 0; top: 0; bottom: 0; width: 40%; background: var(--accent); animation: loading 1.5s infinite ease-in-out; box-shadow: 0 0 10px var(--accent); }
+      @keyframes loading { 0% { left: -40%; } 100% { left: 100%; } }
+      @keyframes spin { 100% { transform: rotate(360deg); } } .spin { animation: spin 1s linear infinite; }
 
       /* Input */
       .input-area {
-        padding: 24px 32px;
-        background: white;
+        padding: 0 40px 40px;
+        background: transparent;
       }
       .input-box {
-        max-width: 800px;
+        max-width: 860px;
         margin: 0 auto;
-        background: #f8fafc;
+        background: #0c0f1a;
         border: 1px solid var(--border);
         border-radius: 24px;
-        padding: 12px 20px;
+        padding: 12px 16px 12px 24px;
         display: flex;
         align-items: center;
-        gap: 12px;
-        transition: border-color 0.2s, box-shadow 0.2s;
+        gap: 16px;
+        transition: all 0.3s;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
       }
       .input-box:focus-within {
-        border-color: var(--accent);
-        background: white;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+        border-color: rgba(16, 185, 129, 0.4);
+        box-shadow: 0 10px 40px var(--accent-glow);
+        background: #0f1423;
       }
       .input-box input {
-        flex: 1; border: none; background: transparent; font-size: 1rem; color: var(--text-main); outline: none;
+        flex: 1; border: none; background: transparent; font-size: 1.05rem; color: white; outline: none;
       }
+      .input-box input::placeholder { color: var(--text-faded); }
+      
       .send-btn {
-        background: var(--text-main); color: white; border: none; width: 36px; height: 36px; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s;
+        background: var(--text-main); color: var(--bg-main); border: none; width: 44px; height: 44px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;
       }
-      .send-btn:hover { background: var(--accent); transform: scale(1.05); }
+      .send-btn:hover { background: var(--accent); color: white; transform: scale(1.05); box-shadow: 0 0 15px var(--accent-glow); }
 
     </style>
   </head>
@@ -511,15 +573,27 @@ export function renderChatPage(env: any): string {
 
     <!-- Sidebar -->
     <div class="sidebar">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+        TerraNile
+      </div>
+      
       <button class="new-chat" onclick="location.reload()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         New Registration
       </button>
+      
+      <div class="history-label">Past Sessions</div>
       <div class="history" id="historyList"></div>
+      
       <div class="sidebar-footer">
-        <a href="/" class="back-home">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-          Back to Homepage
+        <a href="/dashboard" class="footer-link">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
+          Client Portal
+        </a>
+        <a href="/" class="footer-link">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          Exit to Homepage
         </a>
       </div>
     </div>
@@ -527,22 +601,22 @@ export function renderChatPage(env: any): string {
     <!-- Main Chat -->
     <div class="chat-container">
       <div class="chat-header">
-        <div class="chat-title">Asbestos Assistant</div>
-        <div class="agent-status"><div class="dot"></div> Agent Ready</div>
+        <div class="chat-title">Agent Workspace</div>
+        <div class="agent-status"><div class="dot"></div> System Ready</div>
       </div>
       
       <div class="messages" id="chatBody">
         <div class="message bot">
-          <div class="avatar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg></div>
+          <div class="avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg></div>
           <div class="bubble">Hello! I am Asbestos, your Elite Registration Agent. Are you looking to register a Business Name, a Company, or Incorporated Trustees?</div>
         </div>
       </div>
 
       <div class="input-area">
         <form class="input-box" id="chatForm">
-          <input type="text" id="chatInput" placeholder="Message Asbestos..." required autocomplete="off">
+          <input type="text" id="chatInput" placeholder="Message Asbestos to start your filing..." required autocomplete="off">
           <button type="submit" class="send-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           </button>
         </form>
       </div>
@@ -559,6 +633,9 @@ export function renderChatPage(env: any): string {
 
       function renderHistory() {
         historyList.innerHTML = '';
+        if (chatHistory.length === 0) {
+          historyList.innerHTML = '<div class="history-item" style="color:var(--text-faded); cursor:default;">No past sessions</div>';
+        }
         chatHistory.forEach(chat => {
           const item = document.createElement('div');
           item.className = 'history-item';
@@ -575,8 +652,8 @@ export function renderChatPage(env: any): string {
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
         avatar.innerHTML = role === 'bot' 
-          ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>'
-          : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+          ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>'
+          : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
         
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
@@ -595,14 +672,14 @@ export function renderChatPage(env: any): string {
         
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
-        avatar.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>';
+        avatar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>';
         
         const loader = document.createElement('div');
         loader.className = 'loader-container';
         loader.innerHTML = \`
           <div class="loader-text">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
-            Asbestos is processing...
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+            Asbestos is analyzing requirements...
           </div>
           <div class="loader-bar"><div class="loader-progress"></div></div>
         \`;
@@ -611,10 +688,6 @@ export function renderChatPage(env: any): string {
         msg.appendChild(loader);
         chatBody.appendChild(msg);
         chatBody.scrollTop = chatBody.scrollHeight;
-
-        const style = document.createElement('style');
-        style.textContent = '@keyframes spin { 100% { transform: rotate(360deg); } } .spin { animation: spin 1s linear infinite; }';
-        document.head.appendChild(style);
       }
 
       function removeLoader() {

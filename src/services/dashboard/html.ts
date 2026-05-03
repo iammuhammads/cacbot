@@ -128,10 +128,10 @@ function layout(title: string, body: string, activePage: string = "overview"): s
         --card-hover: rgba(20, 27, 50, 0.9);
         --border: rgba(56, 68, 100, 0.28);
         --border-light: rgba(99, 115, 160, 0.15);
-        --accent: #6366f1;
-        --accent-glow: rgba(99, 102, 241, 0.15);
-        --accent-hover: #818cf8;
-        --accent-subtle: rgba(99, 102, 241, 0.08);
+        --accent: #10b981;
+        --accent-glow: rgba(16, 185, 129, 0.15);
+        --accent-hover: #34d399;
+        --accent-subtle: rgba(16, 185, 129, 0.08);
         --text: #eef0f6;
         --text-secondary: #b0b8d1;
         --text-muted: #6b7599;
@@ -142,7 +142,7 @@ function layout(title: string, body: string, activePage: string = "overview"): s
         --danger: #ef4444;
         --danger-bg: rgba(239, 68, 68, 0.08);
         --info: #0ea5e9;
-        --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+        --gradient-1: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
         --gradient-2: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
         --gradient-3: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
