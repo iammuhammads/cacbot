@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "name": "asbestos-cac-frontend",
+  "rewrites": [
+    {
+      "source": "/webhooks/:path*",
+      "destination": "https://your-render-app.onrender.com/webhooks/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://your-render-app.onrender.com/api/:path*"
+    },
+    {
+      "source": "/sessions/:path*",
+      "destination": "https://your-render-app.onrender.com/sessions/:path*"
+    },
+    {
+      "source": "/(chat|dashboard|docs|settings)(.*)",
+      "destination": "https://your-render-app.onrender.com/$1$2"
+    }
+  ]
+}

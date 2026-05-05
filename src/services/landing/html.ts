@@ -323,16 +323,16 @@ export function renderChatPage(env: any): string {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
-        --bg-main: #06080f;
-        --bg-sidebar: #0c0f1a;
-        --bg-panel: #0a0d16;
-        --text-main: #f8fafc;
+        --bg-main: #ffffff;
+        --bg-sidebar: #f9fafb;
+        --bg-panel: #ffffff;
+        --text-main: #0f172a;
         --text-muted: #64748b;
-        --text-faded: #334155;
+        --text-faded: #94a3b8;
         --accent: #10b981;
-        --accent-glow: rgba(16, 185, 129, 0.15);
+        --accent-glow: rgba(16, 185, 129, 0.1);
         --accent-dark: #059669;
-        --border: rgba(56, 68, 100, 0.3);
+        --border: rgba(0, 0, 0, 0.06);
       }
 
       * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
@@ -342,7 +342,7 @@ export function renderChatPage(env: any): string {
         height: 100vh;
         overflow: hidden;
         background: var(--bg-main);
-        background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.05) 0%, transparent 60%);
+        background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.03) 0%, transparent 60%);
         color: var(--text-main);
       }
 
@@ -363,7 +363,7 @@ export function renderChatPage(env: any): string {
         display: flex;
         align-items: center;
         gap: 10px;
-        color: white;
+        color: var(--text-main);
         margin-bottom: 32px;
         padding-left: 8px;
         letter-spacing: -0.5px;
@@ -505,7 +505,7 @@ export function renderChatPage(env: any): string {
         position: relative;
       }
       .bot .bubble {
-        background: rgba(255, 255, 255, 0.03);
+        background: #f8fafc;
         color: var(--text-main);
         border: 1px solid var(--border);
         border-top-left-radius: 4px;
@@ -526,7 +526,7 @@ export function renderChatPage(env: any): string {
       .input-box {
         max-width: 860px;
         margin: 0 auto;
-        background: rgba(255, 255, 255, 0.03);
+        background: #ffffff;
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 8px 12px;
@@ -534,23 +534,23 @@ export function renderChatPage(env: any): string {
         align-items: center;
         gap: 12px;
         transition: all 0.3s;
-        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
       }
       .input-box:focus-within {
         border-color: var(--accent);
-        background: rgba(255, 255, 255, 0.05);
-        box-shadow: 0 0 0 4px var(--accent-glow);
+        background: #ffffff;
+        box-shadow: 0 10px 40px rgba(16, 185, 129, 0.08);
       }
       .input-box input {
         flex: 1;
         background: transparent;
         border: none;
-        color: white;
+        color: var(--text-main);
         font-size: 1rem;
         padding: 12px 4px;
         outline: none;
       }
-      .input-box input::placeholder { color: var(--text-faded); }
+      .input-box input::placeholder { color: var(--text-muted); }
       
       .send-btn {
         width: 40px; height: 40px;

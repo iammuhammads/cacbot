@@ -177,6 +177,7 @@ export function renderDocsPage(): string {
             <a href="#commands" class="nav-item">Agent Commands</a>
             <a href="#recovery" class="nav-item">Recovery System</a>
             <a href="#delivery" class="nav-item">Document Delivery</a>
+            <a href="#api" class="nav-item">Developer API</a>
             
             <div style="margin-top: 60px;">
                 <a href="/dashboard" class="nav-item" style="border: 1px solid var(--border);">← Go to Dashboard</a>
@@ -296,6 +297,42 @@ export function renderDocsPage(): string {
                     <p>1. Automation downloads Certificate and Status Report.<br>
                        2. Files are uploaded to Supabase Storage.<br>
                        3. A WhatsApp message is sent with secure download links.</p>
+                </div>
+            </section>
+
+            <section id="api">
+                <h2>6. Developer API</h2>
+                <p>Asbestos provides a REST API for developers to integrate registration flows into their own applications.</p>
+                
+                <div class="feature-card">
+                    <div class="feature-title">Authentication</div>
+                    <p>All API requests must include your secret key in the <code>Authorization</code> header:</p>
+                    <pre>Authorization: Bearer asb_live_your_key_here</pre>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-title">Endpoints</div>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Method</th>
+                                <th>Endpoint</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>GET</code></td>
+                                <td><code>/api/v1/sessions</code></td>
+                                <td>List all active and completed registration sessions.</td>
+                            </tr>
+                            <tr>
+                                <td><code>GET</code></td>
+                                <td><code>/api/v1/sessions/{id}</code></td>
+                                <td>Retrieve full structured data and status for a specific session.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </section>
 
