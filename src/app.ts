@@ -28,8 +28,10 @@ import { renderChatPage, renderLandingPage } from "./services/landing/html.js";
 import { renderDocsPage } from "./services/docs/html.js";
 import { renderApiKeysPage } from "./services/dashboard/html.js";
 import { ApiKeyService } from "./services/auth/api-key-service.js";
+import { WebhookService } from "./services/monitoring/webhook-service.js";
 
 const apiKeyService = new ApiKeyService();
+const webhookService = new WebhookService();
 import { NoopAutomationJobScheduler } from "./services/jobs/automation-job-scheduler.js";
 import { SupabaseJobScheduler } from "./services/jobs/supabase-job-scheduler.js";
 import { setupClerk, requireAuth } from "./plugins/clerk.js";
@@ -99,6 +101,7 @@ export async function buildApp(env: Env) {
     automation,
     jobScheduler,
     adl,
+    webhookService,
     cacAccountStore
   );
 

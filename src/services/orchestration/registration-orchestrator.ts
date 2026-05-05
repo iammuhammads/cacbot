@@ -12,6 +12,7 @@ import type { AutomationJobScheduler } from "../jobs/automation-job-scheduler.js
 import type { FileStorageService } from "../storage/file-storage.js";
 import type { WhatsAppProvider } from "../whatsapp/provider.js";
 import type { AgentDecisionEngine } from "../ai/agent-decision-engine.js";
+import { WebhookService } from "../monitoring/webhook-service.js";
 
 function normalizePhone(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, "").toLowerCase();
@@ -42,6 +43,7 @@ export class RegistrationOrchestrator {
     private readonly automation: CacAutomationService,
     private readonly jobScheduler: AutomationJobScheduler,
     private readonly adl: AgentDecisionEngine,
+    private readonly webhooks: WebhookService,
     private readonly cacAccountStore?: ICacAccountStore
   ) {
     this.agentPhones = new Set(env.agentPhoneNumbers.map((value) => normalizePhone(value)));
@@ -66,9 +68,22 @@ export class RegistrationOrchestrator {
   }
 
   private setState(session: SessionRecord, state: SessionState, action: string): void {
+    const oldState = session.state;
     session.state = state;
     session.lastAction = action;
     session.updatedAt = new Date().toISOString();
+
+    if (oldState !== state) {
+      this.webhooks.notify({
+        event: "session.state_changed",
+        sessionId: session.id,
+        userId: session.userId,
+        oldState,
+        newState: state,
+        data: session.collectedData,
+        timestamp: session.updatedAt
+      }).catch(err => console.error("[webhook] Error in background notify", err));
+    }
   }
 
   private async persist(session: SessionRecord): Promise<void> {
@@ -372,7 +387,19 @@ export class RegistrationOrchestrator {
     this.appendTurn(session, "client", inboundText);
     this.appendAudit(session, "client", "message_received", { messageId: message.messageId });
 
-    session.behavioralContext.lastActivityAt = new Date().toISOString();
+    const now = new Date();
+    const lastActivity = new Date(session.behavioralContext.lastActivityAt);
+    const inactiveHours = (now.getTime() - lastActivity.getTime()) / (1000 * 3600);
+    
+    let resumePrefix = "";
+    if (inactiveHours > 2 && session.state !== "NEW") {
+      const type = session.collectedData.registrationType || "registration";
+      const name = session.collectedData.businessNameOptions[0] || "your business";
+      resumePrefix = `Welcome back! 👋 I've saved your progress on the *${type}* for *"${name}"*. \n\n`;
+      this.appendAudit(session, "system", "smart_resume_triggered", { inactiveHours });
+    }
+
+    session.behavioralContext.lastActivityAt = now.toISOString();
 
     const decision = await this.intakeService.processTurn(session, inboundText, message.profileName);
     
@@ -410,10 +437,8 @@ export class RegistrationOrchestrator {
 
     // --- ✅ FIELD-LEVEL INTEGRITY ---
     for (const [field, conf] of Object.entries(decision.fieldConfidence)) {
-       // Only save if confidence is high enough
        if (conf >= 0.7) {
          session.behavioralContext.fieldIntegrity[field] = conf;
-         // Merge into candidate data effectively
          const fieldData = (decision.candidateData as any)[field];
          if (fieldData) {
             (session.collectedData as any)[field] = fieldData;
@@ -436,20 +461,27 @@ export class RegistrationOrchestrator {
     }
 
     const progressHeader = `[Step ${plan.currentStepIndex + 1}/${plan.steps.length}: ${plan.steps[plan.currentStepIndex]?.label}]\n\n`;
-    let finalReply = progressHeader + decision.reply;
+    let finalReply = resumePrefix + progressHeader + decision.reply;
 
-    // --- 🆘 ESCAPE HATCH ---
+    // --- 🆘 ESCAPE HATCH & EXPLICIT ESCALATION ---
+    if (decision.needsHuman || session.behavioralContext.userConfusionScore >= 8) {
+       this.setState(session, "MANUAL_REVIEW", "human_escalation_triggered");
+       await this.persist(session);
+       
+       if (session.assignedAgent) {
+         await this.provider.sendTextMessage(session.assignedAgent, `🚨 CRITICAL ESCALATION: User ${session.userId} is stuck in a loop. Please take over.`);
+       }
+       
+       return "I've hit a bit of a technical snag and want to make sure your registration is perfect. 🛠️\n\nI'm bringing in one of our human experts to finish this with you. They'll review everything and message you here shortly!";
+    }
+
     if (session.behavioralContext.userConfusionScore >= 5) {
        finalReply += "\n\nI noticed this is getting a bit complex. Would you like me to connect you to a human agent to finish this quickly? Just say 'YES'.";
     }
 
     const ready = validation.ready && !decision.needsHuman && decision.confidence >= 0.7;
     
-    const nextState: SessionState = ready
-      ? "READY_FOR_SUBMISSION"
-      : (decision.needsHuman || session.behavioralContext.userConfusionScore >= 8)
-        ? "MANUAL_REVIEW"
-        : "COLLECTING_DATA";
+    const nextState: SessionState = ready ? "READY_FOR_SUBMISSION" : "COLLECTING_DATA";
 
     this.setState(session, nextState, ready ? "validated_ready" : "awaiting_data");
 

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { createClient, SupabaseClient } from "@supabase/supabase-client";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { env } from "../../config/env.js";
 
 export interface ApiKeyRecord {
@@ -16,7 +16,7 @@ export class ApiKeyService {
   private client: SupabaseClient;
 
   constructor() {
-    this.client = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    this.client = createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_KEY!);
   }
 
   async createKey(userId: string, name: string): Promise<{ id: string; key: string }> {

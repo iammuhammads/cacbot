@@ -172,11 +172,13 @@ export function renderDocsPage(): string {
                 Asbestos Docs
             </div>
             <a href="#intro" class="nav-item">Introduction</a>
-            <a href="#workflow" class="nav-item">Registration Workflow</a>
+            <a href="#architecture" class="nav-item">System Architecture</a>
             <a href="#modes" class="nav-item">Interaction Modes</a>
             <a href="#commands" class="nav-item">Agent Commands</a>
+            <a href="#schema" class="nav-item">Data Schema</a>
             <a href="#recovery" class="nav-item">Recovery System</a>
             <a href="#delivery" class="nav-item">Document Delivery</a>
+            <a href="#webhooks" class="nav-item">Webhook Integration</a>
             <a href="#api" class="nav-item">Developer API</a>
             
             <div style="margin-top: 60px;">
@@ -190,32 +192,25 @@ export function renderDocsPage(): string {
                 <p>Welcome to the core documentation for your Agentic CAC Registration Bot. This system uses a **Controlled Agentic Architecture**, combining high-level AI reasoning with deterministic browser automation.</p>
             </section>
 
-            <section id="workflow">
-                <h2>1. Registration Workflow</h2>
-                <p>Every session follows a goal-oriented roadmap. The agent tracks progress against 8 critical subgoals:</p>
+            <section id="architecture">
+                <h2>1. System Architecture</h2>
+                <p>The system is split into three decoupled layers to ensure reliability even if one component fails.</p>
                 
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <div>
-                        <div class="feature-title">Intake & Intent Detection</div>
-                        <p>The AI identifies if the user wants a Business Name, Company, or Trustee registration. It also detects greetings or confusion.</p>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-title">Core Services</div>
+                    <ul>
+                        <li><strong>Orchestrator</strong>: The "Brain." Manages state transitions and decides which service to trigger next.</li>
+                        <li><strong>AI Intake (LLM)</strong>: The "Front Desk." Uses Gemini 1.5 Flash to extract data from chaotic WhatsApp messages.</li>
+                        <li><strong>Automation Worker</strong>: The "Hands." Uses Playwright to execute the actual browser interactions on the CAC portal.</li>
+                    </ul>
                 </div>
 
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <div>
-                        <div class="feature-title">Data Extraction & Validation</div>
-                        <p>Individual fields (Directors, Address, Share Capital) are extracted with confidence scores. If confidence is low, the AI switches modes.</p>
-                    </div>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div>
-                        <div class="feature-title">Submission & Payment</div>
-                        <p>Automation handles the portal filing. If payment is required, it pauses, notifies an agent, and resumes only after RRR confirmation.</p>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-title">The State Machine</div>
+                    <p>Sessions progress through a deterministic lifecycle:</p>
+                    <code style="display: block; background: #f8fafc; color: var(--accent-dark); padding: 12px; border-radius: 8px; font-weight: 700; border: 1px solid var(--border);">
+                        INIT ➔ COLLECTING ➔ VALIDATED ➔ SUBMITTING ➔ PAYMENT_PENDING ➔ COMPLETED
+                    </code>
                 </div>
             </section>
 
@@ -279,6 +274,27 @@ export function renderDocsPage(): string {
                 </table>
             </section>
 
+            <section id="schema">
+                <h2>3. Data Schema</h2>
+                <p>The <code>collected_data</code> field in Supabase stores the following structured JSON:</p>
+                <div class="feature-card">
+                    <pre style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem;">
+{
+  "type": "BUSINESS_NAME" | "COMPANY" | "TRUSTEE",
+  "name": "Suggested Name Ltd",
+  "directors": [
+    { "name": "John Doe", "role": "Director", "shares": 500000 }
+  ],
+  "address": "123 Agent St, Lagos",
+  "objective": "General Contracts and ICT",
+  "verification": {
+    "status": "PENDING" | "VERIFIED" | "FAILED",
+    "rrr": "2309-XXXX-XXXX"
+  }
+}</pre>
+                </div>
+            </section>
+
             <section id="recovery">
                 <h2>4. The Intelligent Recovery System</h2>
                 <p>When the CAC Portal throws an error (e.g., "Name Already Taken" or "Selector Changed"), the bot triggers the **Recovery Bridge**.</p>
@@ -297,6 +313,24 @@ export function renderDocsPage(): string {
                     <p>1. Automation downloads Certificate and Status Report.<br>
                        2. Files are uploaded to Supabase Storage.<br>
                        3. A WhatsApp message is sent with secure download links.</p>
+                </div>
+            </section>
+
+            <section id="webhooks">
+                <h2>6. Webhook Integration</h2>
+                <p>Register a URL in the Admin Dashboard to receive real-time notifications about session changes.</p>
+                
+                <div class="feature-card">
+                    <div class="feature-title">The Payload</div>
+                    <p>The system sends a <code>POST</code> request with a JSON body whenever a state transition occurs.</p>
+                    <pre style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem;">
+{
+  "event": "session.updated",
+  "sessionId": "UUID",
+  "oldState": "COLLECTING",
+  "newState": "SUBMITTING",
+  "timestamp": "2026-05-05T12:00:00Z"
+}</pre>
                 </div>
             </section>
 
