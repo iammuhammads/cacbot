@@ -10,6 +10,7 @@ import { FileStorageService } from "./services/storage/file-storage.js";
 import { SupabaseStorageProvider } from "./services/storage/supabase-storage-provider.js";
 import { createWhatsAppProvider } from "./services/whatsapp/provider.js";
 import { SupabaseCacAccountStore } from "./repositories/supabase-cac-account-store.js";
+import { WebhookService } from "./services/monitoring/webhook-service.js";
 
 async function main() {
   assertRuntimeConfig(env);
@@ -34,6 +35,7 @@ async function main() {
     new CacAutomationService(env, createOtpResolver(env), storage, adl),
     new NoopAutomationJobScheduler(),
     adl,
+    new WebhookService(),
     cacAccountStore
   );
 
