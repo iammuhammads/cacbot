@@ -1,5 +1,4 @@
-import type { SessionRecord, SessionState } from "../types/domain.js";
-import type { Env } from "../config/env.js";
+import { sessionRecordSchema } from "../types/domain.js";
 
 export interface SessionStore {
   connect(): Promise<void>;
@@ -8,6 +7,7 @@ export interface SessionStore {
   save(session: SessionRecord): Promise<void>;
   listByState(state?: SessionState): Promise<SessionRecord[]>;
   listByStates(states: SessionState[]): Promise<SessionRecord[]>;
+  listAll(): Promise<SessionRecord[]>;
   findAwaitingPaymentByAgent(agentPhone: string): Promise<SessionRecord[]>;
   checkConnection(): Promise<boolean>;
 }
@@ -46,6 +46,10 @@ export class InMemorySessionStore implements SessionStore {
 
   async listByStates(states: SessionState[]): Promise<SessionRecord[]> {
     return [...this.sessions.values()].filter((record) => states.includes(record.state));
+  }
+
+  async listAll(): Promise<SessionRecord[]> {
+    return [...this.sessions.values()];
   }
 
   async findAwaitingPaymentByAgent(agentPhone: string): Promise<SessionRecord[]> {
@@ -102,6 +106,8 @@ export class SupabaseSessionStore implements SessionStore {
   }
 
   async save(session: SessionRecord): Promise<void> {
+    const nextVersion = (session as any).version ? (session as any).version + 1 : 1;
+    
     const payload = {
       id: session.id,
       user_id: session.userId,
@@ -109,19 +115,28 @@ export class SupabaseSessionStore implements SessionStore {
       collected_data: session.collectedData,
       history: session.history,
       audit_trail: session.auditTrail,
+      plan: session.plan,
+      behavioral_context: session.behavioralContext,
       last_action: session.lastAction,
-      updated_at: session.updatedAt
+      updated_at: session.updatedAt,
+      version: nextVersion
     };
 
     const { error } = await this.client
       .from("sessions")
       .upsert(payload, { onConflict: "id" });
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === "23505") { // Just in case, but upsert usually handles this
+         throw new Error("Concurrency conflict detected. Session updated by another process.");
+      }
+      throw error;
+    }
+    (session as any).version = nextVersion;
   }
 
   async listByState(state?: SessionState): Promise<SessionRecord[]> {
-    let query = this.client.from("sessions").select("*");
+    let query = this.client.from("sessions").select("*").eq("archived", false);
     if (state) {
       query = query.eq("state", state);
     }
@@ -136,6 +151,7 @@ export class SupabaseSessionStore implements SessionStore {
     const { data, error } = await this.client
       .from("sessions")
       .select("*")
+      .eq("archived", false)
       .in("state", states);
 
     if (error) throw error;
@@ -146,6 +162,7 @@ export class SupabaseSessionStore implements SessionStore {
     const { data, error } = await this.client
       .from("sessions")
       .select("*")
+      .eq("archived", false)
       .eq("state", "AWAITING_PAYMENT");
 
     if (error) throw error;
@@ -163,10 +180,13 @@ export class SupabaseSessionStore implements SessionStore {
       collectedData: row.collected_data,
       history: row.history,
       auditTrail: row.audit_trail,
+      plan: row.plan,
+      behavioralContext: row.behavioral_context,
       lastAction: row.last_action,
       updatedAt: row.updated_at,
-      createdAt: row.created_at
-    };
+      createdAt: row.created_at,
+      version: row.version
+    } as any;
   }
 
   async checkConnection(): Promise<boolean> {

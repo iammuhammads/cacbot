@@ -23,14 +23,17 @@ async function main() {
   const cacAccountStore = new SupabaseCacAccountStore(env);
   await cacAccountStore.connect();
 
+  const adl = new (await import("./services/ai/agent-decision-engine.js")).AgentDecisionEngine(env);
+
   const orchestrator = new RegistrationOrchestrator(
     env,
     store,
     createWhatsAppProvider(env),
     new RegistrationIntakeService(env),
     new FileStorageService(env, storage),
-    new CacAutomationService(env, createOtpResolver(env), storage),
+    new CacAutomationService(env, createOtpResolver(env), storage, adl),
     new NoopAutomationJobScheduler(),
+    adl,
     cacAccountStore
   );
 

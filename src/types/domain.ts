@@ -155,30 +155,43 @@ export interface AuditEntry {
   detail?: unknown;
 }
 
-export interface SessionRecord {
-  id: string;
-  userId: string;
-  provider: WhatsAppProviderName;
-  assignedAgent?: string;
-  state: SessionState;
-  collectedData: RegistrationData;
-  history: ConversationTurn[];
-  auditTrail: AuditEntry[];
-  lastAction: string;
-  behavioralContext: {
-    mode: InteractionMode;
-    userBehaviorProfile?: string;
-    questionAttempts: Record<string, number>;
-    userConfusionScore: number;
-    lastQuestionAsked?: string;
-    lastSuccessfulField?: string;
-    fieldIntegrity: Record<string, number>;
-    lastActivityAt: string;
-  };
-  plan: ExecutionPlan;
-  createdAt: string;
-  updatedAt: string;
-}
+export const sessionRecordSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  provider: z.string() as any,
+  assignedAgent: z.string().optional(),
+  state: z.string() as any,
+  collectedData: z.any(),
+  history: z.array(z.any()),
+  auditTrail: z.array(z.any()),
+  lastAction: z.string(),
+  behavioralContext: z.object({
+    mode: z.enum(["CONVERSATIONAL", "GUIDED", "STRICT"]),
+    userBehaviorProfile: z.string().optional(),
+    questionAttempts: z.record(z.number()),
+    userConfusionScore: z.number(),
+    lastQuestionAsked: z.string().optional(),
+    lastSuccessfulField: z.string().optional(),
+    fieldIntegrity: z.record(z.number()),
+    lastActivityAt: z.string()
+  }),
+  plan: z.object({
+    currentStepIndex: z.number(),
+    steps: z.array(z.object({
+       id: z.string(),
+       label: z.string(),
+       completed: z.boolean(),
+       blocked: z.boolean(),
+       failureReason: z.string().optional()
+    }))
+  }),
+  version: z.number().optional(),
+  archived: z.boolean().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export interface SessionRecord extends z.infer<typeof sessionRecordSchema> {}
 
 export interface InboundMediaAttachment {
   url: string;

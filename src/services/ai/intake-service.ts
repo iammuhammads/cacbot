@@ -594,6 +594,7 @@ Use a **Humanization Layer**: Start replies with "Got it.", "Perfect.", or "Alri
       intent: "DATA_INPUT",
       reply: "I've noted that. Could you tell me what type of registration you are looking for? (Business Name, Company, or Trustee)",
       candidateData,
+      fieldConfidence: {},
       missingFields: validation.missingFields,
       readyForSubmission: false,
       stateSuggestion: "COLLECTING_DATA",

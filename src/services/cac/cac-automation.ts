@@ -12,6 +12,7 @@ import type {
   UploadedDocument
 } from "../../types/domain.js";
 import type { OtpResolver } from "./otp-resolver.js";
+import type { AgentDecisionEngine } from "../ai/agent-decision-engine.js";
 import { RegistrationRecoveryService } from "../ai/recovery-service.js";
 import type { StorageProvider } from "../storage/storage-provider.js";
 

@@ -11,6 +11,7 @@ import type { ICacAccountStore } from "../../repositories/cac-account-store.js";
 import type { AutomationJobScheduler } from "../jobs/automation-job-scheduler.js";
 import type { FileStorageService } from "../storage/file-storage.js";
 import type { WhatsAppProvider } from "../whatsapp/provider.js";
+import type { AgentDecisionEngine } from "../ai/agent-decision-engine.js";
 
 function normalizePhone(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, "").toLowerCase();
@@ -93,7 +94,9 @@ export class RegistrationOrchestrator {
       behavioralContext: {
         mode: "CONVERSATIONAL",
         questionAttempts: {},
-        userConfusionScore: 0
+        userConfusionScore: 0,
+        fieldIntegrity: {},
+        lastActivityAt: now
       },
       plan: {
         currentStepIndex: 0,
@@ -679,13 +682,13 @@ export class RegistrationOrchestrator {
        if (diffMin >= 1440) { // 24 hours
           this.setState(session, "ERROR", "archived_due_to_inactivity");
           await this.persist(session);
-          await this.provider.sendMessage(session.id, "I've saved your progress. We can continue anytime. Just send a message when you are back! 👋");
+          await this.provider.sendTextMessage(session.id, "I've saved your progress. We can continue anytime. Just send a message when you are back! 👋");
        } else if (diffMin >= 60 && session.state !== "ERROR") { // 1 hour
           // soft pause - log it
        } else if (diffMin >= 10 && !session.auditTrail.some(a => a.action === "stale_reminder_sent" && (now - new Date(a.at).getTime()) < 3600000)) {
           this.appendAudit(session, "system", "stale_reminder_sent", {});
           await this.persist(session);
-          await this.provider.sendMessage(session.id, "Checking in! I'm still here to help with your CAC registration. Would you like to continue?");
+          await this.provider.sendTextMessage(session.id, "Checking in! I'm still here to help with your CAC registration. Would you like to continue?");
        }
     }
   }
