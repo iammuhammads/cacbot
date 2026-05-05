@@ -25,6 +25,7 @@ import {
   renderDashboardSettings
 } from "./services/dashboard/html.js";
 import { renderChatPage, renderLandingPage } from "./services/landing/html.js";
+import { renderDocsPage } from "./services/docs/html.js";
 import { NoopAutomationJobScheduler } from "./services/jobs/automation-job-scheduler.js";
 import { SupabaseJobScheduler } from "./services/jobs/supabase-job-scheduler.js";
 import { setupClerk, requireAuth } from "./plugins/clerk.js";
@@ -375,6 +376,10 @@ export async function buildApp(env: Env) {
     }
 
     return reply.redirect(`/dashboard/${body.sessionId}`);
+  });
+
+  app.get("/docs", async (_request, reply) => {
+    return reply.type("text/html").send(renderDocsPage());
   });
 
   return app;
