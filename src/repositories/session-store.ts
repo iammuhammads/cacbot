@@ -1,4 +1,6 @@
 import { sessionRecordSchema } from "../types/domain.js";
+import type { SessionRecord, SessionState } from "../types/domain.js";
+import type { Env } from "../config/env.js";
 
 export interface SessionStore {
   connect(): Promise<void>;

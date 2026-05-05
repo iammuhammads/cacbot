@@ -881,7 +881,7 @@ export class CacAutomationService {
     await this.fillIfPresent(
       page,
       ["company secretary", "secretary name"],
-      session.collectedData.notes.find((note) => /secretary/i.test(note))
+      session.collectedData.notes.find((note: string) => /secretary/i.test(note))
     );
     await this.uploadCoreDocuments(page, session);
     return this.extractPaymentOutcome(page, session, portal);

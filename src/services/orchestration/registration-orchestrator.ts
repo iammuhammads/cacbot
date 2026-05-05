@@ -685,7 +685,7 @@ export class RegistrationOrchestrator {
           await this.provider.sendTextMessage(session.id, "I've saved your progress. We can continue anytime. Just send a message when you are back! 👋");
        } else if (diffMin >= 60 && session.state !== "ERROR") { // 1 hour
           // soft pause - log it
-       } else if (diffMin >= 10 && !session.auditTrail.some(a => a.action === "stale_reminder_sent" && (now - new Date(a.at).getTime()) < 3600000)) {
+       } else if (diffMin >= 10 && !session.auditTrail.some((a: any) => a.action === "stale_reminder_sent" && (now - new Date(a.at).getTime()) < 3600000)) {
           this.appendAudit(session, "system", "stale_reminder_sent", {});
           await this.persist(session);
           await this.provider.sendTextMessage(session.id, "Checking in! I'm still here to help with your CAC registration. Would you like to continue?");

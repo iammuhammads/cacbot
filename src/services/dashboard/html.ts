@@ -1348,7 +1348,7 @@ export function renderDashboardDetail(session: SessionRecord): string {
     .join("");
 
   const docs = data.documents
-    .map((d) => `<div class="info-row"><span class="info-label">${escapeHtml(d.kind)}</span><span class="info-value">${escapeHtml(d.fileName)}</span></div>`)
+    .map((d: any) => `<div class="info-row"><span class="info-label">${escapeHtml(d.kind)}</span><span class="info-value">${escapeHtml(d.fileName)}</span></div>`)
     .join("");
 
   return layout("Session Details", `
