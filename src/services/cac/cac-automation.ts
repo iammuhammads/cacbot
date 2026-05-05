@@ -62,7 +62,8 @@ export class CacAutomationService {
   constructor(
     private readonly env: Env,
     private readonly otpResolver: OtpResolver,
-    private readonly storage: StorageProvider
+    private readonly storage: StorageProvider,
+    private readonly adl: AgentDecisionEngine
   ) {
     this.recoveryService = new RegistrationRecoveryService(env);
   }
@@ -143,9 +144,29 @@ export class CacAutomationService {
         await this.captureHtml(page, session.id, `retry-${stepName}-attempt${attempt}`).catch(() => undefined);
         
         if (attempt === maxAttempts) {
-           console.log(`[cac-automation] Final attempt failed. Triggering AI Recovery Bridge...`);
+           console.log(`[cac-automation] Final attempt failed. Triggering Intelligent Recovery System...`);
            try {
              const domText = (await page.locator("body").innerText().catch(() => "")) || "Blank Page";
+             
+             // --- 🧠 CALL ADL FOR RECOVERY ---
+             const recoveryDecision = await this.adl.decide(session, {
+               event: "automation_step_failure",
+               error: lastError.message,
+               domSnapshot: domText
+             });
+             
+             console.log(`[cac-automation] ADL Recovery Decision:`, recoveryDecision);
+             
+             if (recoveryDecision.action === "ESCALATE") {
+               throw new Error(`RECOVERY_FAILED: ${recoveryDecision.reasoning}`);
+             }
+
+             if (recoveryDecision.action === "RETRY") {
+               attempt = 1; // Reset attempts for a fresh start with new strategy
+               continue;
+             }
+
+             // If the ADL suggests a specific browser action, we use the RecoveryService (which uses Claude) to find the selector
              const recoveryAction = await this.recoveryService.processFailure(
                session,
                lastError.message,
@@ -155,6 +176,18 @@ export class CacAutomationService {
              
              console.log(`[cac-automation] AI Recovery returned action:`, recoveryAction);
              
+             // --- 🛡️ ACTION GUARDRAILS ---
+             const restrictedActions = ["submit", "finalize", "confirm", "pay", "delete"];
+             const isRestricted = restrictedActions.some(a => 
+                recoveryAction.reason.toLowerCase().includes(a) || 
+                (recoveryAction.selector && recoveryAction.selector.toLowerCase().includes(a))
+             );
+
+             if (isRestricted) {
+                console.warn(`[cac-automation] AI attempted restricted action: ${recoveryAction.reason}. Aborting for safety.`);
+                throw lastError;
+             }
+
              session.auditTrail.push({
                 at: new Date().toISOString(),
                 actor: "system",
@@ -333,8 +366,12 @@ export class CacAutomationService {
       // Try by exact label first
       let locator = page.getByLabel(new RegExp(label, "i"));
       if ((await locator.count().catch(() => 0)) > 0) {
-        await locator.first().fill(value);
-        return;
+        // Double check it's an input or textarea
+        const tagName = await locator.first().evaluate(el => el.tagName.toLowerCase()).catch(() => "");
+        if (tagName === "input" || tagName === "textarea") {
+          await locator.first().fill(value);
+          return;
+        }
       }
 
       // Try by placeholder

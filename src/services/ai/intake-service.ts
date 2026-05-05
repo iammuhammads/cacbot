@@ -81,6 +81,10 @@ const candidateDataSchema = z.object({
 });
 
 const llmDecisionSchema = z.object({
+  intent: z.enum(["GREETING", "CAC_INTENT", "DATA_INPUT", "CONFUSION", "IRRELEVANT"]),
+  suggestedMode: z.enum(["CONVERSATIONAL", "GUIDED", "STRICT"]).optional(),
+  userBehaviorProfile: z.string().optional(),
+  fieldConfidence: z.record(z.number()),
   reply: z.string().min(1),
   candidateData: candidateDataSchema,
   missingFields: z.array(z.string()),
@@ -97,18 +101,21 @@ const llmDecisionSchema = z.object({
 });
 
 const llmResponseJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "reply",
-    "candidateData",
-    "missingFields",
-    "readyForSubmission",
-    "stateSuggestion",
-    "needsHuman",
-    "confidence"
-  ],
+  required: ["intent", "fieldConfidence", "reply", "candidateData", "missingFields", "readyForSubmission", "stateSuggestion", "needsHuman", "confidence"],
   properties: {
+    intent: {
+      type: "string",
+      enum: ["GREETING", "CAC_INTENT", "DATA_INPUT", "CONFUSION", "IRRELEVANT"]
+    },
+    suggestedMode: {
+      type: "string",
+      enum: ["CONVERSATIONAL", "GUIDED", "STRICT"]
+    },
+    userBehaviorProfile: { type: "string" },
+    fieldConfidence: {
+      type: "object",
+      additionalProperties: { type: "number", minimum: 0, maximum: 1 }
+    },
     reply: { type: "string" },
     candidateData: {
       type: "object",
@@ -493,55 +500,48 @@ export class RegistrationIntakeService {
       content: turn.text
     }));
 
-    const systemPrompt = [
-      "You are Asbestos, a senior registration agent at TerraNile Ltd. You are sharp, professional, and slightly conversational—like a top-tier lawyer who wants to get the job done correctly but remains friendly.",
-      "CORE PERSONALITY:",
-      "- Your name is Asbestos. You are a human agent, not a bot.",
-      "- Speak naturally. Use phrases like 'Got it', 'Perfect', 'Hi!', or 'I'll handle that for you'.",
-      "- GREETING ACKNOWLEDGMENT: If the user says 'hi', 'hello', or greets you, always greet them back warmly (e.g., 'Hello! Great to meet you.') before asking for information.",
-      "- Do NOT list missing fields as a bulleted technical list. Say things like 'I just need your email and those two business name options to wrap this up.'",
-      "NON-NEGOTIABLE RULES:",
-      "1. ONE STEP AT A TIME: Ask for the next 1-2 items only. Keep the conversation flowing.",
-      "2. ALWAYS CONFIRM CRITICAL DATA: Before moving from stage A to B, say something like 'Just to confirm, we are registering StyleFix as a Business Name, correct?'",
-      "3. DETECT MISSING INFO: If the user describes their activity, and you need a 'Business Type' (BN vs Ltd), ask for it immediately.",
-      "4. ACCOUNT TYPE SELECTION: You must ask the client: 'Would you like to use our professional account for filing, or would you like to provide your own CAC login details for this registration?'",
-      "5. NEVER HALLUCINATE: If you aren't 100% sure of a detail, ask the user to clarify.",
-      "6. MAINTAIN CONTROL: If the user asks general questions or goes off-track, answer in ONE short sentence and immediately steer back to the registration intake.",
-      "7. DATA COLLECTION: If the user provides an email and password for their CAC account, extract them into portalCredentials.",
-      "POST-INCORPORATION DETECTION: If the user is asking to modify an existing registration rather than create a new one (phrases like 'change address', 'change directors', 'change name', 'file annual returns', 'change share'), set `workflowType` to one of: CHANGE_ADDRESS, CHANGE_DIRECTORS, CHANGE_NAME, CHANGE_SHARES, CHANGE_ACTIVITY, ANNUAL_RETURNS and populate `postIncData` with any extracted details (especially `existingRcNumber` and `existingName`). If RC number is missing, ask for it immediately. For change flows, request only one missing piece at a time.",
-      "6. SHOW PROGRESS: Let the user know where they are (e.g., 'We're almost done, I just need your address.')",
-      "7. CLEAR TRANSITIONS: When all data is collected, explicitly state that you are proceeding to submission.",
-      "",
-      "CAC SPECIALIZED KNOWLEDGE (ACCURACY):",
-      "- BUSINESS NAMES usually end in 'Enterprises', 'Ventures', or 'Services'.",
-      "- COMPANIES (Ltd) must have directors AND shareholders. For small businesses, these are usually the same people.",
-      "- FORBIDDEN NAMES: If a user suggests a name with 'Federal', 'National', 'Police', 'Army', 'Government', 'Holding', 'Group', 'Standard', or 'Consolidated', warn them that these require special consent or higher share capital.",
-      "- NAMES: A business name should have at least 2 options.",
-      "",
-      "EXTENDED SERVICES KNOWLEDGE (BEYOND CAC):",
-      "- SCUML (Special Control Unit against Money Laundering): Required for certain business types in Nigeria (Real estate, Jewelry, Hotels, etc.). If you detect these activities, ask if they have SCUML or want you to handle it.",
-      "- ANNUAL RETURNS: Every registered entity must file these. Remind users who haven't filed in a while.",
-      "- EFCC Compliance: Be aware of anti-fraud requirements for certain sectors.",
-      "",
-      "AI BEHAVIORAL EXAMPLES (FEW-SHOT):",
-      "User: 'I want to register my food business, it is and also logistics'",
-      "Assistant: 'That sounds like a great plan. To keep things simple on the registration, should we focus on the Food business or the Logistics side as the primary activity? Also, would you like to register this as a Business Name or a Limited Company?'",
-      "",
-      "User: 'Register it as Federal Foodies Ltd'",
-      "Assistant: 'Just a heads up, using 'Federal' in a business name requires special consent from the Registrar General and might delay your application. Would you like to try a different name, or should we proceed with the consent process?'",
-      "",
-      "REGISTRATION CONTEXT:",
-      JSON.stringify(
-        {
-          currentState: session.state,
-          currentData: session.collectedData,
-          validationIssues: validation.issues,
-          missingFields: validation.missingFields
-        },
-        null,
-        2
-      )
-    ].join("\n");
+    const systemPrompt = `You are Asbestos, a Senior Corporate Legal Partner at TerraNile. You manage the conversation with authority and empathy.
+
+### 🎭 ADAPTIVE INTERACTION MODES
+- **CONVERSATIONAL** (Default): Warm, professional, natural dialogue.
+- **GUIDED**: User is confused. Use numbered options, direct buttons, and simpler language.
+- **STRICT**: Only accept the specific data requested. Minimal social fluff.
+
+You can suggest a mode switch in your JSON output if you detect high friction or if the user asks for more guidance.
+
+### 🧠 CONVERSATION STRATEGY ENGINE
+For every message, you MUST:
+1. **Classify Intent**: GREETING, CAC_INTENT, DATA_INPUT, CONFUSION, or IRRELEVANT.
+2. **Apply Behavioral Rules**:
+   - **GREETING**: Acknowledge warmly ("Got you.", "Perfect.") then guide back to the missing fields.
+   - **CONFUSION**: If the user seems lost, stop asking for data. Offer simpler choices or explain the process.
+   - **IRRELEVANT**: Acknowledge briefly and redirect: "I hear you. But to keep our filing moving, I still need..."
+   - **DATA_INPUT**: Acknowledge the info was saved before asking the next thing.
+
+3. **Strategy Adaptation**:
+   - Look at the "Attempts" for the current missing fields.
+   - **Attempt 1**: Ask naturally.
+   - **Attempt 2**: Rephrase simply.
+   - **Attempt 3+**: Switch to guided options (e.g., "Reply 1 for LTD, 2 for Business Name").
+   - **NEVER** repeat the same question twice in similar wording.
+
+### 📋 GOAL
+Collect: Registration Type, Name Options (2+), Activity, and Client Details.
+
+### 🏗️ OUTPUT
+Return JSON with "intent", "reply", "candidateData", "confidence", etc.
+Use a **Humanization Layer**: Start replies with "Got it.", "Perfect.", or "Alright." before moving forward.
+
+### 🌍 CURRENT CONTEXT
+- User's Profile Name: ${profileName || 'Client'}
+- Current Mode: ${session.behavioralContext.mode}
+- Current Registration Type: ${session.collectedData.registrationType || 'Not chosen yet'}
+- Question Attempts: ${JSON.stringify(session.behavioralContext.questionAttempts)}
+- User Confusion Score: ${session.behavioralContext.userConfusionScore}
+- Progress: ${validation.ready ? 'Ready to file!' : 'Collecting details...'}
+- Missing Fields: ${validation.missingFields.join(", ")}
+- Last Question Asked: ${session.behavioralContext.lastQuestionAsked || "None"}
+`;
 
     const response = await client.messages.create({
       model: this.env.ANTHROPIC_MODEL,
@@ -580,96 +580,26 @@ export class RegistrationIntakeService {
     inboundText: string,
     profileName?: string
   ): Promise<IntakeDecision> {
-    const lower = inboundText.toLowerCase();
     const candidateData: Partial<RegistrationData> = {};
-
-    if (!session.collectedData.registrationType) {
-      const detected = detectRegistrationType(inboundText);
-      if (detected) {
-        candidateData.registrationType = detected;
-      }
-    }
-
-    if (!session.collectedData.clientName && profileName) {
-      candidateData.clientName = profileName;
-    }
-
-    const email = extractEmail(inboundText);
-    if (email) {
-      candidateData.clientEmail = email;
-    }
-
-    const phone = extractPhone(inboundText);
-    if (phone) {
-      candidateData.clientPhone = phone;
-    }
-
-    if (
-      session.collectedData.businessNameOptions.length === 0 &&
-      (lower.includes(",") || lower.includes("\n") || lower.includes("option"))
-    ) {
-      candidateData.businessNameOptions = extractBusinessNames(inboundText);
-    }
-
-    const date = extractIsoDate(inboundText);
-    if (date && !session.collectedData.commencementDate) {
-      candidateData.commencementDate = date;
-    }
-
-    if (!session.collectedData.businessActivity && inboundText.length > 20) {
-      candidateData.businessActivity = inboundText;
-    }
-
-    const mergedPreview = {
-      ...session.collectedData,
-      ...candidateData,
-      address: {
-        ...session.collectedData.address,
-        ...candidateData.address
-      }
-    };
-
-    const validation = validateRegistrationData(mergedPreview);
-
-    if (!candidateData.registrationType && !session.collectedData.registrationType) {
-      return {
-        reply:
-          "I can help with that. Are you registering a Business Name, a Company, or Incorporated Trustees?",
-        candidateData,
-        missingFields: validation.missingFields,
-        readyForSubmission: false,
-        stateSuggestion: "COLLECTING_DATA",
-        needsHuman: false,
-        confidence: 0.45,
-        summary: "Waiting for registration type."
-      };
-    }
-
-    const isNew = !session.collectedData.registrationType && !session.collectedData.clientName && !candidateData.registrationType;
+    const validation = validateRegistrationData(session.collectedData);
     
-    let replyText = "";
-    if (validation.ready) {
-      replyText = "Everything looks solid! I'm proceeding to the submission stage for you now. 🚀";
-    } else if (isNew) {
-      replyText = "Hello! I am Asbestos, your Elite Registration Agent. Are you looking to register a Business Name, a Company, or Incorporated Trustees?";
-    } else {
-      const humanReplies = [
-        `I've got those details. I still need your ${describeMissingTargets(validation.missingFields)} to move forward.`,
-        `Perfect. Just send me your ${describeMissingTargets(validation.missingFields)} and I'll get the filing ready.`,
-        `Thanks! Once I have the ${describeMissingTargets(validation.missingFields)}, we'll be all set for the CAC portal.`
-      ];
-      replyText = humanReplies[Math.floor(Math.random() * humanReplies.length)] as string;
-    }
+    // Simple heuristic extraction
+    const detected = detectRegistrationType(inboundText);
+    if (detected) candidateData.registrationType = detected;
+    
+    const email = extractEmail(inboundText);
+    if (email) candidateData.clientEmail = email;
 
     return {
-      reply: replyText,
+      intent: "DATA_INPUT",
+      reply: "I've noted that. Could you tell me what type of registration you are looking for? (Business Name, Company, or Trustee)",
       candidateData,
       missingFields: validation.missingFields,
-      readyForSubmission: validation.ready,
-      stateSuggestion: validation.ready ? "READY_FOR_SUBMISSION" : "COLLECTING_DATA",
+      readyForSubmission: false,
+      stateSuggestion: "COLLECTING_DATA",
       needsHuman: false,
-      confidence: 0.45,
-      summary: validation.ready ? "Heuristics marked ready." : "Heuristics collected partial data."
+      confidence: 0.1,
+      summary: "Heuristic fallback triggered."
     };
   }
 }

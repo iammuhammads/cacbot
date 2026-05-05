@@ -15,6 +15,21 @@ export type RegistrationType =
   | "INCORPORATED_TRUSTEES"
   | "OTHER";
 
+export type InteractionMode = "CONVERSATIONAL" | "GUIDED" | "STRICT";
+
+export interface Subgoal {
+  id: string;
+  label: string;
+  completed: boolean;
+  blocked: boolean;
+  failureReason?: string;
+}
+
+export interface ExecutionPlan {
+  currentStepIndex: number;
+  steps: Subgoal[];
+}
+
 export type SessionState =
   | "NEW"
   | "COLLECTING_DATA"
@@ -150,6 +165,17 @@ export interface SessionRecord {
   history: ConversationTurn[];
   auditTrail: AuditEntry[];
   lastAction: string;
+  behavioralContext: {
+    mode: InteractionMode;
+    userBehaviorProfile?: string;
+    questionAttempts: Record<string, number>;
+    userConfusionScore: number;
+    lastQuestionAsked?: string;
+    lastSuccessfulField?: string;
+    fieldIntegrity: Record<string, number>;
+    lastActivityAt: string;
+  };
+  plan: ExecutionPlan;
   createdAt: string;
   updatedAt: string;
 }
@@ -174,6 +200,10 @@ export interface NormalizedInboundMessage {
 }
 
 export interface IntakeDecision {
+  intent: "GREETING" | "CAC_INTENT" | "DATA_INPUT" | "CONFUSION" | "IRRELEVANT";
+  suggestedMode?: InteractionMode;
+  userBehaviorProfile?: string;
+  fieldConfidence: Record<string, number>;
   reply: string;
   candidateData: Partial<RegistrationData>;
   missingFields: string[];

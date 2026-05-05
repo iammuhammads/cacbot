@@ -29,15 +29,15 @@ async function testFullSubmission() {
     state: "READY_FOR_SUBMISSION",
     collectedData: {
       workflowType: "NEW_REGISTRATION",
-      registrationType: "BUSINESS_NAME",
-      businessNameOptions: [`Test Business ${Date.now()}`],
-      clientName: "Test Client",
+      registrationType: "COMPANY",
+      businessNameOptions: [`Future Tech Solutions Ltd`, `Nova Dynamics Ltd`],
+      clientName: "Muhammad Ahmad",
       clientEmail: env.CAC_EMAIL,
-      clientPhone: env.agentPhoneNumbers?.[0] ?? "whatsapp:+000000000",
-      businessActivity: "Retail Trade",
+      clientPhone: env.agentPhoneNumbers?.[0] ?? "whatsapp:+2349034505995",
+      businessActivity: "Information Technology and Software Development",
       commencementDate: new Date().toISOString().split("T")[0],
-      address: { line1: "1 Test St", city: "Lagos", state: "Lagos", country: "Nigeria" },
-      shareCapitalNaira: 100000,
+      address: { line1: "15 Corporate Way", city: "Abuja", state: "FCT", country: "Nigeria" },
+      shareCapitalNaira: 1000000,
       proprietors: [
         {
           fullName: "John Doe",
@@ -48,7 +48,17 @@ async function testFullSubmission() {
           nationality: "NG"
         }
       ],
-      directors: [],
+      directors: [
+        {
+          fullName: "Muhammad Ahmad",
+          dob: "1990-05-20",
+          phone: "+2349034505995",
+          idType: "National ID",
+          idNumber: "NID9876543",
+          nationality: "NG",
+          shares: 1000000
+        }
+      ],
       trustees: [],
       documents: [],
       notes: []

@@ -40,6 +40,7 @@ export class RegistrationOrchestrator {
     private readonly fileStorage: FileStorageService,
     private readonly automation: CacAutomationService,
     private readonly jobScheduler: AutomationJobScheduler,
+    private readonly adl: AgentDecisionEngine,
     private readonly cacAccountStore?: ICacAccountStore
   ) {
     this.agentPhones = new Set(env.agentPhoneNumbers.map((value) => normalizePhone(value)));
@@ -89,6 +90,24 @@ export class RegistrationOrchestrator {
       history: [],
       auditTrail: [],
       lastAction: "session_created",
+      behavioralContext: {
+        mode: "CONVERSATIONAL",
+        questionAttempts: {},
+        userConfusionScore: 0
+      },
+      plan: {
+        currentStepIndex: 0,
+        steps: [
+          { id: "collect_type", label: "Collect registration type", completed: false, blocked: false },
+          { id: "collect_names", label: "Collect business names", completed: false, blocked: false },
+          { id: "collect_directors", label: "Collect directors/proprietors", completed: false, blocked: false },
+          { id: "collect_details", label: "Collect business address & activity", completed: false, blocked: false },
+          { id: "validate_data", label: "Validate all data", completed: false, blocked: false },
+          { id: "submit_cac", label: "Submit to CAC Portal", completed: false, blocked: false },
+          { id: "handle_payment", label: "Process payment", completed: false, blocked: false },
+          { id: "confirm_completion", label: "Confirm submission complete", completed: false, blocked: false }
+        ]
+      },
       createdAt: now,
       updatedAt: now
     };
@@ -305,6 +324,20 @@ export class RegistrationOrchestrator {
 
     const inboundText = message.text.trim() || `[${message.media.length} document(s) uploaded]`;
     
+    // --- 💳 FLEXIBLE PAYMENT DETECTION ---
+    const isAwaitingPayment = session.state === "AWAITING_PAYMENT";
+    const paymentKeywords = ["paid", "done", "completed", "sent", "finished"];
+    const hasPaymentKeyword = paymentKeywords.some(k => inboundText.toLowerCase().includes(k));
+    const hasRrr = inboundText.match(/\b\d{12}\b/);
+
+    if (isAwaitingPayment && (hasPaymentKeyword || hasRrr)) {
+      this.appendAudit(session, "client", "payment_intent_detected", { text: inboundText });
+      this.setState(session, "PAYMENT_CONFIRMED", "auto_payment_detected");
+      await this.persist(session);
+      await this.jobScheduler.enqueueResumePayment(session.id);
+      return "I’m verifying your payment now... One moment please. ⌛\n\nI will notify you the moment your registration is finalized!";
+    }
+    
     // Elite Manual OTP Logic
     // Only sniff for OTP if we are in AWAITING_OTP or ERROR states
     const isAwaitingOtp = session.state === "AWAITING_OTP" || session.state === "ERROR";
@@ -336,34 +369,97 @@ export class RegistrationOrchestrator {
     this.appendTurn(session, "client", inboundText);
     this.appendAudit(session, "client", "message_received", { messageId: message.messageId });
 
-    const decision = await this.intakeService.processTurn(session, inboundText, message.profileName);
-    session.collectedData = mergeRegistrationData(session.collectedData, decision.candidateData);
+    session.behavioralContext.lastActivityAt = new Date().toISOString();
 
+    const decision = await this.intakeService.processTurn(session, inboundText, message.profileName);
+    
+    // --- 🧠 AGENTIC DECISION LAYER (ADL) ---
+    if (session.behavioralContext.userConfusionScore > 2 || decision.suggestedMode) {
+       const adlDecision = await this.adl.decide(session, { event: "intake_friction_detected" });
+       this.appendAudit(session, "system", "adl_decision", adlDecision);
+       
+       if (adlDecision.action === "ESCALATE") {
+         decision.needsHuman = true;
+       }
+    }
+
+    if (decision.userBehaviorProfile) {
+      session.behavioralContext.userBehaviorProfile = decision.userBehaviorProfile;
+    }
+
+    // --- 🧠 BEHAVIORAL STRATEGY ENGINE ---
+    if (decision.intent === "CONFUSION") {
+      session.behavioralContext.userConfusionScore += 1;
+    }
+
+    // Immediate Guided Mode if AI is guessing
+    if (decision.confidence < 0.5 && session.behavioralContext.mode === "CONVERSATIONAL") {
+      session.behavioralContext.mode = "GUIDED";
+    }
+    
+    // Active Threshold-based switching
+    if (session.behavioralContext.userConfusionScore >= 2 && session.behavioralContext.mode === "CONVERSATIONAL") {
+      session.behavioralContext.mode = "GUIDED";
+    }
+    if (session.behavioralContext.userConfusionScore >= 4) {
+      session.behavioralContext.mode = "STRICT";
+    }
+
+    // --- ✅ FIELD-LEVEL INTEGRITY ---
+    for (const [field, conf] of Object.entries(decision.fieldConfidence)) {
+       // Only save if confidence is high enough
+       if (conf >= 0.7) {
+         session.behavioralContext.fieldIntegrity[field] = conf;
+         // Merge into candidate data effectively
+         const fieldData = (decision.candidateData as any)[field];
+         if (fieldData) {
+            (session.collectedData as any)[field] = fieldData;
+            session.behavioralContext.userConfusionScore = Math.max(0, session.behavioralContext.userConfusionScore - 0.5);
+         }
+       }
+    }
+
+    // --- 📊 PLAN & PROGRESS VISIBILITY ---
     const validation = validateRegistrationData(session.collectedData);
-    const ready = validation.ready && !decision.needsHuman;
+    
+    const plan = session.plan;
+    const currentSubgoal = plan.steps[plan.currentStepIndex];
+    if (currentSubgoal) {
+       if (currentSubgoal.id === "collect_type" && session.collectedData.registrationType) currentSubgoal.completed = true;
+       if (currentSubgoal.id === "collect_names" && session.collectedData.businessNameOptions.length >= 2) currentSubgoal.completed = true;
+       if (currentSubgoal.completed && plan.currentStepIndex < plan.steps.length - 1) {
+         plan.currentStepIndex += 1;
+       }
+    }
+
+    const progressHeader = `[Step ${plan.currentStepIndex + 1}/${plan.steps.length}: ${plan.steps[plan.currentStepIndex]?.label}]\n\n`;
+    let finalReply = progressHeader + decision.reply;
+
+    // --- 🆘 ESCAPE HATCH ---
+    if (session.behavioralContext.userConfusionScore >= 5) {
+       finalReply += "\n\nI noticed this is getting a bit complex. Would you like me to connect you to a human agent to finish this quickly? Just say 'YES'.";
+    }
+
+    const ready = validation.ready && !decision.needsHuman && decision.confidence >= 0.7;
+    
     const nextState: SessionState = ready
       ? "READY_FOR_SUBMISSION"
-      : decision.needsHuman
+      : (decision.needsHuman || session.behavioralContext.userConfusionScore >= 8)
         ? "MANUAL_REVIEW"
         : "COLLECTING_DATA";
 
-    this.setState(
-      session,
-      nextState,
-      ready ? "validated_ready_for_submission" : "awaiting_more_data"
-    );
+    this.setState(session, nextState, ready ? "validated_ready" : "awaiting_data");
+
     this.appendAudit(session, "system", "intake_processed", {
       ready,
       missingFields: validation.missingFields,
-      issues: validation.issues,
-      summary: decision.summary
+      intent: decision.intent,
+      confidence: decision.confidence,
+      mode: session.behavioralContext.mode
     });
 
-    const outbound = ready ? `${decision.reply}\n\nReference ID: ${session.id}` : decision.reply;
-
-    this.appendTurn(session, "assistant", outbound);
     await this.persist(session);
-    return outbound;
+    return finalReply;
   }
 
   async submitReadySession(sessionId: string): Promise<void> {
@@ -572,8 +668,31 @@ export class RegistrationOrchestrator {
     }
   }
 
+  async checkStaleSessions(): Promise<void> {
+    const sessions = await this.store.listByStates(["COLLECTING_DATA", "AWAITING_PAYMENT", "AWAITING_OTP"]);
+    const now = Date.now();
+
+    for (const session of sessions) {
+       const lastActive = new Date(session.behavioralContext.lastActivityAt).getTime();
+       const diffMin = (now - lastActive) / (1000 * 60);
+
+       if (diffMin >= 1440) { // 24 hours
+          this.setState(session, "ERROR", "archived_due_to_inactivity");
+          await this.persist(session);
+          await this.provider.sendMessage(session.id, "I've saved your progress. We can continue anytime. Just send a message when you are back! 👋");
+       } else if (diffMin >= 60 && session.state !== "ERROR") { // 1 hour
+          // soft pause - log it
+       } else if (diffMin >= 10 && !session.auditTrail.some(a => a.action === "stale_reminder_sent" && (now - new Date(a.at).getTime()) < 3600000)) {
+          this.appendAudit(session, "system", "stale_reminder_sent", {});
+          await this.persist(session);
+          await this.provider.sendMessage(session.id, "Checking in! I'm still here to help with your CAC registration. Would you like to continue?");
+       }
+    }
+  }
+
   async listSessions(state?: SessionState): Promise<SessionRecord[]> {
-    return this.store.listByState(state);
+    if (state) return this.store.listByState(state);
+    return this.store.listAll();
   }
 
   async getSession(sessionId: string): Promise<SessionRecord | null> {

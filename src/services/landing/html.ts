@@ -514,59 +514,37 @@ export function renderChatPage(env: any): string {
         border-top-right-radius: 4px;
       }
 
-      /* Visual Loader */
-      .loader-container {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        background: #0f1423;
-        border: 1px solid rgba(16, 185, 129, 0.2);
-        padding: 20px;
-        border-radius: 16px;
-        width: 100%;
-        max-width: 320px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      /* Automation Live Terminal */
+      .automation-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(6, 8, 15, 0.95);
+        display: none; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 1000; backdrop-filter: blur(20px);
       }
-      .loader-text { font-size: 0.9rem; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 10px; }
-      .loader-bar { width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; position: relative; }
-      .loader-progress { position: absolute; left: 0; top: 0; bottom: 0; width: 40%; background: var(--accent); animation: loading 1.5s infinite ease-in-out; box-shadow: 0 0 10px var(--accent); }
-      @keyframes loading { 0% { left: -40%; } 100% { left: 100%; } }
-      @keyframes spin { 100% { transform: rotate(360deg); } } .spin { animation: spin 1s linear infinite; }
+      .terminal-window {
+        width: 90%; max-width: 800px; height: 500px;
+        background: #000; border: 1px solid var(--accent);
+        border-radius: 12px; box-shadow: 0 0 50px rgba(16, 185, 129, 0.3);
+        display: flex; flex-direction: column; overflow: hidden;
+        position: relative;
+      }
+      .terminal-header {
+        background: #111; padding: 12px 20px;
+        display: flex; justify-content: space-between; align-items: center;
+        border-bottom: 1px solid #222;
+      }
+      .terminal-controls { display: flex; gap: 8px; }
+      .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+      .terminal-body {
+        flex: 1; padding: 24px; font-family: 'Courier New', monospace;
+        font-size: 0.95rem; color: var(--accent); overflow-y: auto;
+        line-height: 1.5; text-shadow: 0 0 5px var(--accent);
+      }
+      .terminal-line { margin-bottom: 8px; opacity: 0; transform: translateX(-10px); animation: slideIn 0.3s forwards; }
+      @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
 
-      /* Input */
-      .input-area {
-        padding: 0 40px 40px;
-        background: transparent;
-      }
-      .input-box {
-        max-width: 860px;
-        margin: 0 auto;
-        background: #0c0f1a;
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        padding: 12px 16px 12px 24px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        transition: all 0.3s;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-      }
-      .input-box:focus-within {
-        border-color: rgba(16, 185, 129, 0.4);
-        box-shadow: 0 10px 40px var(--accent-glow);
-        background: #0f1423;
-      }
-      .input-box input {
-        flex: 1; border: none; background: transparent; font-size: 1.05rem; color: white; outline: none;
-      }
-      .input-box input::placeholder { color: var(--text-faded); }
-      
-      .send-btn {
-        background: var(--text-main); color: var(--bg-main); border: none; width: 44px; height: 44px; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;
-      }
-      .send-btn:hover { background: var(--accent); color: white; transform: scale(1.05); box-shadow: 0 0 15px var(--accent-glow); }
-
+      /* Matrix Background for Terminal */
+      .matrix-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.1; pointer-events: none; }
     </style>
   </head>
   <body>
@@ -622,14 +600,68 @@ export function renderChatPage(env: any): string {
       </div>
     </div>
 
+    <!-- Automation Live Terminal Overlay -->
+    <div class="automation-overlay" id="automationOverlay">
+      <div class="terminal-window">
+        <canvas class="matrix-canvas" id="matrixCanvas"></canvas>
+        <div class="terminal-header">
+          <div class="terminal-controls">
+            <div class="terminal-dot" style="background: #ff5f56;"></div>
+            <div class="terminal-dot" style="background: #ffbd2e;"></div>
+            <div class="terminal-dot" style="background: #27c93f;"></div>
+          </div>
+          <div style="color: #666; font-size: 0.8rem; font-weight: 600;">TERRANILE_CORE_V4_SUBMISSION_SERVICE</div>
+        </div>
+        <div class="terminal-body" id="terminalBody">
+          <div class="terminal-line" style="color: white;">> INITIALIZING AUTOMATED COMPLIANCE AGENT...</div>
+        </div>
+      </div>
+      <div style="margin-top: 30px; color: var(--accent); font-weight: 700; font-size: 1.1rem; letter-spacing: 2px; text-transform: uppercase;">Automation in Progress</div>
+    </div>
+
     <script>
       const chatBody = document.getElementById('chatBody');
       const chatForm = document.getElementById('chatForm');
       const chatInput = document.getElementById('chatInput');
       const historyList = document.getElementById('historyList');
+      const automationOverlay = document.getElementById('automationOverlay');
+      const terminalBody = document.getElementById('terminalBody');
+      const matrixCanvas = document.getElementById('matrixCanvas');
 
       let userId = localStorage.getItem('asbestos_user_id') || null;
       let chatHistory = JSON.parse(localStorage.getItem('asbestos_history')) || [];
+      let isAutomating = false;
+      let lastStepIndex = -1;
+
+      // Matrix Rain Effect
+      const ctx = matrixCanvas.getContext('2d');
+      let columns;
+      let drops = [];
+      const fontSize = 16;
+      const characters = '01ABCDEFGHIJKLMNOPQRSTUVWXYZｦｱｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ';
+
+      function initMatrix() {
+        matrixCanvas.width = matrixCanvas.parentElement.offsetWidth;
+        matrixCanvas.height = matrixCanvas.parentElement.offsetHeight;
+        columns = Math.floor(matrixCanvas.width / fontSize);
+        drops = Array(columns).fill(1);
+      }
+
+      function drawMatrix() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+        ctx.fillStyle = '#10b981';
+        ctx.font = fontSize + 'px monospace';
+        for (let i = 0; i < drops.length; i++) {
+          const text = characters[Math.floor(Math.random() * characters.length)];
+          ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+          if (drops[i] * fontSize > matrixCanvas.height && Math.random() > 0.975) drops[i] = 0;
+          drops[i]++;
+        }
+      }
+      window.addEventListener('resize', initMatrix);
+      initMatrix();
+      setInterval(drawMatrix, 50);
 
       function renderHistory() {
         historyList.innerHTML = '';
@@ -648,56 +680,68 @@ export function renderChatPage(env: any): string {
       function addMessage(text, role) {
         const msg = document.createElement('div');
         msg.className = 'message ' + role;
-        
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
         avatar.innerHTML = role === 'bot' 
           ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>'
           : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
-        
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
         bubble.textContent = text;
-        
         msg.appendChild(avatar);
         msg.appendChild(bubble);
         chatBody.appendChild(msg);
         chatBody.scrollTop = chatBody.scrollHeight;
       }
 
-      function showLoader() {
-        const msg = document.createElement('div');
-        msg.className = 'message bot';
-        msg.id = 'tempLoader';
-        
-        const avatar = document.createElement('div');
-        avatar.className = 'avatar';
-        avatar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>';
-        
-        const loader = document.createElement('div');
-        loader.className = 'loader-container';
-        loader.innerHTML = \`
-          <div class="loader-text">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
-            Asbestos is analyzing requirements...
-          </div>
-          <div class="loader-bar"><div class="loader-progress"></div></div>
-        \`;
-        
-        msg.appendChild(avatar);
-        msg.appendChild(loader);
-        chatBody.appendChild(msg);
-        chatBody.scrollTop = chatBody.scrollHeight;
+      function showTerminalLine(text, color = 'var(--accent)') {
+        const line = document.createElement('div');
+        line.className = 'terminal-line';
+        line.style.color = color;
+        line.textContent = '> ' + text;
+        terminalBody.appendChild(line);
+        terminalBody.scrollTop = terminalBody.scrollHeight;
       }
 
-      function removeLoader() {
-        const loader = document.getElementById('tempLoader');
-        if (loader) loader.remove();
+      function startAutomationPolling() {
+        if (isAutomating) return;
+        isAutomating = true;
+        automationOverlay.style.display = 'flex';
+        initMatrix();
+        
+        const poll = setInterval(async () => {
+          try {
+            const res = await fetch(\`/sessions/\${userId}\`);
+            const data = await res.json();
+            
+            if (data.auditTrail) {
+              data.auditTrail.forEach((step, index) => {
+                if (index > lastStepIndex) {
+                  if (step.action === 'automation_step_started') {
+                    showTerminalLine(\`EXECUTING: \${step.detail.stepName}...\`);
+                  } else if (step.action === 'automation_step_completed') {
+                    showTerminalLine(\`COMPLETED: \${step.detail.stepName}\`, '#27c93f');
+                  } else if (step.action === 'automation_failed') {
+                    showTerminalLine(\`CRITICAL ERROR: \${step.detail.error}\`, '#ff5f56');
+                  }
+                  lastStepIndex = index;
+                }
+              });
+            }
+
+            if (data.state !== 'SUBMITTING' && data.state !== 'PAYMENT_CONFIRMED') {
+              clearInterval(poll);
+              isAutomating = false;
+              setTimeout(() => {
+                automationOverlay.style.display = 'none';
+                addMessage("Automation phase completed. Please check the chat for the next steps or payment details.", "bot");
+              }, 3000);
+            }
+          } catch (err) { console.error(err); }
+        }, 2000);
       }
 
       async function sendMessage(text) {
-        showLoader();
-        
         try {
           const res = await fetch('/api/chat', {
             method: 'POST',
@@ -705,10 +749,12 @@ export function renderChatPage(env: any): string {
             body: JSON.stringify({ text, userId })
           });
           const data = await res.json();
-          removeLoader();
           
           if (data.ok) {
             addMessage(data.text, 'bot');
+            if (data.state === 'SUBMITTING') {
+              startAutomationPolling();
+            }
             if (data.userId && !userId) {
               userId = data.userId;
               localStorage.setItem('asbestos_user_id', userId);
@@ -720,7 +766,6 @@ export function renderChatPage(env: any): string {
             addMessage('Error: ' + (data.error || 'Unknown error'), 'bot');
           }
         } catch (err) {
-          removeLoader();
           addMessage('Network error. Please try again.', 'bot');
         }
       }
@@ -729,7 +774,6 @@ export function renderChatPage(env: any): string {
         e.preventDefault();
         const text = chatInput.value.trim();
         if (!text) return;
-        
         addMessage(text, 'user');
         chatInput.value = '';
         sendMessage(text);

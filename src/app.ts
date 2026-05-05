@@ -73,8 +73,9 @@ export async function buildApp(env: Env) {
 
   const provider = createWhatsAppProvider(env);
   const fileStorage = new FileStorageService(env, storageProvider);
+  const adl = new (await import("./services/ai/agent-decision-engine.js")).AgentDecisionEngine(env);
   const intakeService = new RegistrationIntakeService(env);
-  const automation = new CacAutomationService(env, createOtpResolver(env), storageProvider);
+  const automation = new CacAutomationService(env, createOtpResolver(env), storageProvider, adl);
   
   const cacAccountStore = new SupabaseCacAccountStore(env);
   await cacAccountStore.connect();
@@ -92,6 +93,7 @@ export async function buildApp(env: Env) {
     fileStorage,
     automation,
     jobScheduler,
+    adl,
     cacAccountStore
   );
 
@@ -264,10 +266,13 @@ export async function buildApp(env: Env) {
     
     try {
       const response = await orchestrator.handleWebChat(userId, body.text);
+      const session = await orchestrator.getSession(userId);
       return { 
         ok: true, 
         text: response,
-        userId: userId
+        userId: userId,
+        state: session?.state,
+        auditTrail: session?.auditTrail
       };
     } catch (err) {
       request.log.error(err);
