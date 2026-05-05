@@ -26,6 +26,10 @@ import {
 } from "./services/dashboard/html.js";
 import { renderChatPage, renderLandingPage } from "./services/landing/html.js";
 import { renderDocsPage } from "./services/docs/html.js";
+import { renderApiKeysPage } from "./services/dashboard/html.js";
+import { ApiKeyService } from "./services/auth/api-key-service.js";
+
+const apiKeyService = new ApiKeyService();
 import { NoopAutomationJobScheduler } from "./services/jobs/automation-job-scheduler.js";
 import { SupabaseJobScheduler } from "./services/jobs/supabase-job-scheduler.js";
 import { setupClerk, requireAuth } from "./plugins/clerk.js";
@@ -376,6 +380,27 @@ export async function buildApp(env: Env) {
     }
 
     return reply.redirect(`/dashboard/${body.sessionId}`);
+  });
+
+  app.get("/dashboard/api-keys", { preHandler: [requireAuth] }, async (request, reply) => {
+    const userId = (request as any).auth?.userId || "anonymous";
+    const keys = await apiKeyService.listKeys(userId);
+    return reply.type("text/html").send(renderApiKeysPage(keys));
+  });
+
+  app.post("/api/keys", { preHandler: [requireAuth] }, async (request, reply) => {
+    const userId = (request as any).auth?.userId || "anonymous";
+    const body = request.body as { name: string };
+    if (!body.name) return reply.code(400).send({ error: "Name is required" });
+    const result = await apiKeyService.createKey(userId, body.name);
+    return reply.send(result);
+  });
+
+  app.delete("/api/keys/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+    const userId = (request as any).auth?.userId || "anonymous";
+    const params = request.params as { id: string };
+    const ok = await apiKeyService.deleteKey(userId, params.id);
+    return ok ? reply.code(204).send() : reply.code(404).send();
   });
 
   app.get("/docs", async (_request, reply) => {

@@ -497,21 +497,78 @@ export function renderChatPage(env: any): string {
       .user .avatar { background: #1e293b; color: white; border: 1px solid var(--border); }
 
       .bubble {
-        padding: 16px 24px;
-        border-radius: 20px;
-        font-size: 1.05rem;
-        line-height: 1.6;
-        color: var(--text-main);
+        padding: 18px 24px;
+        border-radius: 18px;
+        font-size: 1rem;
+        line-height: 1.55;
+        max-width: 85%;
+        position: relative;
       }
       .bot .bubble {
-        background: transparent;
+        background: rgba(255, 255, 255, 0.03);
         color: var(--text-main);
+        border: 1px solid var(--border);
+        border-top-left-radius: 4px;
       }
       .user .bubble {
-        background: #1e293b;
-        color: white;
-        border: 1px solid var(--border);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+        color: #000;
+        font-weight: 500;
         border-top-right-radius: 4px;
+        box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.3);
+      }
+
+      /* Input Area Overhaul */
+      .input-area {
+        padding: 24px 40px 40px;
+        background: linear-gradient(to top, var(--bg-panel) 80%, transparent);
+      }
+      .input-box {
+        max-width: 860px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.3s;
+        backdrop-filter: blur(10px);
+      }
+      .input-box:focus-within {
+        border-color: var(--accent);
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 0 0 4px var(--accent-glow);
+      }
+      .input-box input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 1rem;
+        padding: 12px 4px;
+        outline: none;
+      }
+      .input-box input::placeholder { color: var(--text-faded); }
+      
+      .send-btn {
+        width: 40px; height: 40px;
+        background: var(--accent);
+        color: #000;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.2s;
+      }
+      .send-btn:hover {
+        background: white;
+        transform: scale(1.05);
+      }
+      .send-btn:disabled {
+        background: var(--text-faded);
+        cursor: not-allowed;
       }
 
       /* Automation Live Terminal */

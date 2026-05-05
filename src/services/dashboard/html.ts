@@ -1074,6 +1074,10 @@ function layout(title: string, body: string, activePage: string = "overview"): s
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           AI Config
         </a>
+        <a href="/dashboard/api-keys" class="nav-item ${activePage === 'api_keys' ? 'active' : ''}" id="nav-api-keys">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3L15.5 7.5z"></path></svg>
+          API Keys
+        </a>
         <a href="javascript:void(0)" onclick="window.scrollTo({top:0, behavior:'smooth'})" class="nav-item" id="nav-health">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M12 6v6l4 2"></path></svg>
           Health Check
@@ -1633,4 +1637,100 @@ export function renderDashboardSettings(settings: BotSettings): string {
       </form>
     </div>
   `, "settings");
+}
+
+export function renderApiKeysPage(keys: any[]): string {
+  const rows = keys.map(k => `
+    <tr>
+      <td>${escapeHtml(k.name)}</td>
+      <td><code>${k.keyPrefix}••••••••</code></td>
+      <td>${k.lastUsedAt ? timeAgo(k.lastUsedAt) : 'Never'}</td>
+      <td>${new Date(k.createdAt).toLocaleDateString()}</td>
+      <td style="text-align: right;">
+        <button class="btn btn-danger" onclick="deleteKey('${k.id}')" style="padding: 4px 8px; font-size: 0.7rem;">Delete</button>
+      </td>
+    </tr>
+  `).join("");
+
+  return layout("API Keys", `
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Developer API Keys</h1>
+        <p>Integrate Asbestos with your own systems and workflows.</p>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px;">
+        <div class="table-section fade-in">
+          <div class="table-header">
+            <h2>Active Keys</h2>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Key</th>
+                <th>Last Used</th>
+                <th>Created</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">No API keys generated yet.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="detail-card fade-in">
+          <h3>Create New Key</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Provide a name for your key to help you identify it later.</p>
+          <form id="create-key-form">
+            <div class="form-group">
+              <label class="form-label">Key Name</label>
+              <input type="text" id="key-name" placeholder="e.g. Mobile App Production" required />
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3L15.5 7.5z"></path></svg>
+              Generate Key
+            </button>
+          </form>
+
+          <div id="new-key-display" style="display: none; margin-top: 24px; padding: 16px; background: var(--bg-elevated); border: 1px solid var(--accent); border-radius: 12px;">
+            <p style="font-size: 0.75rem; font-weight: 700; color: var(--accent); text-transform: uppercase; margin-bottom: 8px;">Success! Copy your key now:</p>
+            <code id="new-key-value" style="display: block; word-break: break-all; margin-bottom: 12px; font-weight: 700; color: #000;"></code>
+            <p style="font-size: 0.7rem; color: var(--text-muted);">For security reasons, you won't be able to see this key again.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      async function deleteKey(id) {
+        if (!confirm('Are you sure you want to delete this API key? External integrations using this key will stop working immediately.')) return;
+        const res = await fetch(\`/api/keys/\${id}\`, { method: 'DELETE' });
+        if (res.ok) window.location.reload();
+        else alert('Failed to delete key.');
+      }
+
+      document.getElementById('create-key-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('key-name').value;
+        const res = await fetch('/api/keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('new-key-value').textContent = data.key;
+          document.getElementById('new-key-display').style.display = 'block';
+          document.getElementById('create-key-form').style.display = 'none';
+        } else {
+          alert('Failed to generate key.');
+        }
+      });
+    </script>
+  `, "api_keys");
 }
