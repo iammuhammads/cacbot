@@ -158,6 +158,16 @@ export class SupabaseSessionStore implements SessionStore {
     return (data || []).map((row: any) => this.mapFromDb(row));
   }
 
+  async listAll(): Promise<SessionRecord[]> {
+    const { data, error } = await this.client
+      .from("sessions")
+      .select("*")
+      .eq("archived", false);
+
+    if (error) throw error;
+    return (data || []).map((row: any) => this.mapFromDb(row));
+  }
+
   async findAwaitingPaymentByAgent(agentPhone: string): Promise<SessionRecord[]> {
     const { data, error } = await this.client
       .from("sessions")
