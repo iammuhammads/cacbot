@@ -321,8 +321,17 @@ export class RegistrationOrchestrator {
   }
 
   private async handleClientMessage(message: NormalizedInboundMessage): Promise<void> {
-    const reply = await this.processMessage(message);
-    await this.provider.sendTextMessage(message.from, reply);
+    try {
+      const reply = await this.processMessage(message);
+      await this.provider.sendTextMessage(message.from, reply);
+    } catch (error) {
+      console.error(`[orchestrator] CRITICAL ERROR handling message from ${message.from}:`, error);
+      // Fallback message so the user isn't left in silence
+      await this.provider.sendTextMessage(
+        message.from,
+        "I'm sorry, I encountered an unexpected error while processing your request. My human colleagues have been notified, but please try again in a moment!"
+      ).catch(() => {});
+    }
   }
 
   private async processMessage(message: NormalizedInboundMessage): Promise<string> {
@@ -384,117 +393,122 @@ export class RegistrationOrchestrator {
       return "Confirming code. Resuming your registration now! 🚀";
     }
 
-    this.appendTurn(session, "client", inboundText);
-    this.appendAudit(session, "client", "message_received", { messageId: message.messageId });
+    try {
+      this.appendTurn(session, "client", inboundText);
+      this.appendAudit(session, "client", "message_received", { messageId: message.messageId });
 
-    const now = new Date();
-    const lastActivity = new Date(session.behavioralContext.lastActivityAt);
-    const inactiveHours = (now.getTime() - lastActivity.getTime()) / (1000 * 3600);
-    
-    let resumePrefix = "";
-    if (inactiveHours > 2 && session.state !== "NEW") {
-      const type = session.collectedData.registrationType || "registration";
-      const name = session.collectedData.businessNameOptions[0] || "your business";
-      resumePrefix = `Welcome back! 👋 I've saved your progress on the *${type}* for *"${name}"*. \n\n`;
-      this.appendAudit(session, "system", "smart_resume_triggered", { inactiveHours });
-    }
+      const now = new Date();
+      const lastActivity = new Date(session.behavioralContext.lastActivityAt);
+      const inactiveHours = (now.getTime() - lastActivity.getTime()) / (1000 * 3600);
+      
+      let resumePrefix = "";
+      if (inactiveHours > 2 && session.state !== "NEW") {
+        const type = session.collectedData.registrationType || "registration";
+        const name = session.collectedData.businessNameOptions[0] || "your business";
+        resumePrefix = `Welcome back! 👋 I've saved your progress on the *${type}* for *"${name}"*. \n\n`;
+        this.appendAudit(session, "system", "smart_resume_triggered", { inactiveHours });
+      }
 
-    session.behavioralContext.lastActivityAt = now.toISOString();
+      session.behavioralContext.lastActivityAt = now.toISOString();
 
-    const decision = await this.intakeService.processTurn(session, inboundText, message.profileName);
-    
-    // --- 🧠 AGENTIC DECISION LAYER (ADL) ---
-    if (session.behavioralContext.userConfusionScore > 2 || decision.suggestedMode) {
-       const adlDecision = await this.adl.decide(session, { event: "intake_friction_detected" });
-       this.appendAudit(session, "system", "adl_decision", adlDecision);
-       
-       if (adlDecision.action === "ESCALATE") {
-         decision.needsHuman = true;
-       }
-    }
-
-    if (decision.userBehaviorProfile) {
-      session.behavioralContext.userBehaviorProfile = decision.userBehaviorProfile;
-    }
-
-    // --- 🧠 BEHAVIORAL STRATEGY ENGINE ---
-    if (decision.intent === "CONFUSION") {
-      session.behavioralContext.userConfusionScore += 1;
-    }
-
-    // Immediate Guided Mode if AI is guessing
-    if (decision.confidence < 0.5 && session.behavioralContext.mode === "CONVERSATIONAL") {
-      session.behavioralContext.mode = "GUIDED";
-    }
-    
-    // Active Threshold-based switching
-    if (session.behavioralContext.userConfusionScore >= 2 && session.behavioralContext.mode === "CONVERSATIONAL") {
-      session.behavioralContext.mode = "GUIDED";
-    }
-    if (session.behavioralContext.userConfusionScore >= 4) {
-      session.behavioralContext.mode = "STRICT";
-    }
-
-    // --- ✅ FIELD-LEVEL INTEGRITY ---
-    for (const [field, conf] of Object.entries(decision.fieldConfidence)) {
-       if (conf >= 0.7) {
-         session.behavioralContext.fieldIntegrity[field] = conf;
-         const fieldData = (decision.candidateData as any)[field];
-         if (fieldData) {
-            (session.collectedData as any)[field] = fieldData;
-            session.behavioralContext.userConfusionScore = Math.max(0, session.behavioralContext.userConfusionScore - 0.5);
+      const decision = await this.intakeService.processTurn(session, inboundText, message.profileName);
+      
+      // --- 🧠 AGENTIC DECISION LAYER (ADL) ---
+      if (session.behavioralContext.userConfusionScore > 2 || decision.suggestedMode) {
+         const adlDecision = await this.adl.decide(session, { event: "intake_friction_detected" });
+         this.appendAudit(session, "system", "adl_decision", adlDecision);
+         
+         if (adlDecision.action === "ESCALATE") {
+           decision.needsHuman = true;
          }
-       }
+      }
+
+      if (decision.userBehaviorProfile) {
+        session.behavioralContext.userBehaviorProfile = decision.userBehaviorProfile;
+      }
+
+      // --- 🧠 BEHAVIORAL STRATEGY ENGINE ---
+      if (decision.intent === "CONFUSION") {
+        session.behavioralContext.userConfusionScore += 1;
+      }
+
+      // Immediate Guided Mode if AI is guessing
+      if (decision.confidence < 0.5 && session.behavioralContext.mode === "CONVERSATIONAL") {
+        session.behavioralContext.mode = "GUIDED";
+      }
+      
+      // Active Threshold-based switching
+      if (session.behavioralContext.userConfusionScore >= 2 && session.behavioralContext.mode === "CONVERSATIONAL") {
+        session.behavioralContext.mode = "GUIDED";
+      }
+      if (session.behavioralContext.userConfusionScore >= 4) {
+        session.behavioralContext.mode = "STRICT";
+      }
+
+      // --- ✅ FIELD-LEVEL INTEGRITY ---
+      for (const [field, conf] of Object.entries(decision.fieldConfidence)) {
+         if (conf >= 0.7) {
+           session.behavioralContext.fieldIntegrity[field] = conf;
+           const fieldData = (decision.candidateData as any)[field];
+           if (fieldData) {
+              (session.collectedData as any)[field] = fieldData;
+              session.behavioralContext.userConfusionScore = Math.max(0, session.behavioralContext.userConfusionScore - 0.5);
+           }
+         }
+      }
+
+      // --- 📊 PLAN & PROGRESS VISIBILITY ---
+      const validation = validateRegistrationData(session.collectedData);
+      
+      const plan = session.plan;
+      const currentSubgoal = plan.steps[plan.currentStepIndex];
+      if (currentSubgoal) {
+         if (currentSubgoal.id === "collect_type" && session.collectedData.registrationType) currentSubgoal.completed = true;
+         if (currentSubgoal.id === "collect_names" && session.collectedData.businessNameOptions.length >= 2) currentSubgoal.completed = true;
+         if (currentSubgoal.completed && plan.currentStepIndex < plan.steps.length - 1) {
+           plan.currentStepIndex += 1;
+         }
+      }
+
+      const progressHeader = `[Step ${plan.currentStepIndex + 1}/${plan.steps.length}: ${plan.steps[plan.currentStepIndex]?.label}]\n\n`;
+      let finalReply = resumePrefix + progressHeader + decision.reply;
+
+      // --- 🆘 ESCAPE HATCH & EXPLICIT ESCALATION ---
+      if (decision.needsHuman || session.behavioralContext.userConfusionScore >= 8) {
+         this.setState(session, "MANUAL_REVIEW", "human_escalation_triggered");
+         await this.persist(session);
+         
+         if (session.assignedAgent) {
+           await this.provider.sendTextMessage(session.assignedAgent, `🚨 CRITICAL ESCALATION: User ${session.userId} is stuck in a loop. Please take over.`);
+         }
+         
+         return "I've hit a bit of a technical snag and want to make sure your registration is perfect. 🛠️\n\nI'm bringing in one of our human experts to finish this with you. They'll review everything and message you here shortly!";
+      }
+
+      if (session.behavioralContext.userConfusionScore >= 5) {
+         finalReply += "\n\nI noticed this is getting a bit complex. Would you like me to connect you to a human agent to finish this quickly? Just say 'YES'.";
+      }
+
+      const ready = validation.ready && !decision.needsHuman && decision.confidence >= 0.7;
+      
+      const nextState: SessionState = ready ? "READY_FOR_SUBMISSION" : "COLLECTING_DATA";
+
+      this.setState(session, nextState, ready ? "validated_ready" : "awaiting_data");
+
+      this.appendAudit(session, "system", "intake_processed", {
+        ready,
+        missingFields: validation.missingFields,
+        intent: decision.intent,
+        confidence: decision.confidence,
+        mode: session.behavioralContext.mode
+      });
+
+      await this.persist(session);
+      return finalReply;
+    } catch (err) {
+      console.error("[orchestrator] Error in processMessage:", err);
+      throw err; // Re-throw to be caught by handleClientMessage
     }
-
-    // --- 📊 PLAN & PROGRESS VISIBILITY ---
-    const validation = validateRegistrationData(session.collectedData);
-    
-    const plan = session.plan;
-    const currentSubgoal = plan.steps[plan.currentStepIndex];
-    if (currentSubgoal) {
-       if (currentSubgoal.id === "collect_type" && session.collectedData.registrationType) currentSubgoal.completed = true;
-       if (currentSubgoal.id === "collect_names" && session.collectedData.businessNameOptions.length >= 2) currentSubgoal.completed = true;
-       if (currentSubgoal.completed && plan.currentStepIndex < plan.steps.length - 1) {
-         plan.currentStepIndex += 1;
-       }
-    }
-
-    const progressHeader = `[Step ${plan.currentStepIndex + 1}/${plan.steps.length}: ${plan.steps[plan.currentStepIndex]?.label}]\n\n`;
-    let finalReply = resumePrefix + progressHeader + decision.reply;
-
-    // --- 🆘 ESCAPE HATCH & EXPLICIT ESCALATION ---
-    if (decision.needsHuman || session.behavioralContext.userConfusionScore >= 8) {
-       this.setState(session, "MANUAL_REVIEW", "human_escalation_triggered");
-       await this.persist(session);
-       
-       if (session.assignedAgent) {
-         await this.provider.sendTextMessage(session.assignedAgent, `🚨 CRITICAL ESCALATION: User ${session.userId} is stuck in a loop. Please take over.`);
-       }
-       
-       return "I've hit a bit of a technical snag and want to make sure your registration is perfect. 🛠️\n\nI'm bringing in one of our human experts to finish this with you. They'll review everything and message you here shortly!";
-    }
-
-    if (session.behavioralContext.userConfusionScore >= 5) {
-       finalReply += "\n\nI noticed this is getting a bit complex. Would you like me to connect you to a human agent to finish this quickly? Just say 'YES'.";
-    }
-
-    const ready = validation.ready && !decision.needsHuman && decision.confidence >= 0.7;
-    
-    const nextState: SessionState = ready ? "READY_FOR_SUBMISSION" : "COLLECTING_DATA";
-
-    this.setState(session, nextState, ready ? "validated_ready" : "awaiting_data");
-
-    this.appendAudit(session, "system", "intake_processed", {
-      ready,
-      missingFields: validation.missingFields,
-      intent: decision.intent,
-      confidence: decision.confidence,
-      mode: session.behavioralContext.mode
-    });
-
-    await this.persist(session);
-    return finalReply;
   }
 
   async submitReadySession(sessionId: string): Promise<void> {
