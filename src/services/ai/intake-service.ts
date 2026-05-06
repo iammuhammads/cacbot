@@ -9,6 +9,7 @@ import type {
   SessionRecord
 } from "../../types/domain.js";
 import { getNextPromptTargets, validateRegistrationData } from "../../utils/validation.js";
+import { logger } from "../utils/logger.js";
 
 const registrationTypeSchema = z
   .enum(["BUSINESS_NAME", "COMPANY", "INCORPORATED_TRUSTEES", "OTHER"])
@@ -369,16 +370,16 @@ export class RegistrationIntakeService {
   private readonly anthropic?: Anthropic;
 
   constructor(private readonly env: Env) {
-    console.log("[AI] Initializing Intake Service...");
+    logger.info("Initializing Intake Service...");
     if (env.ANTHROPIC_API_KEY) {
-      console.log("[AI] Anthropic Key Detected. Initializing Claude...");
+      logger.info("Anthropic Key Detected. Initializing Claude...");
       this.anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
     } else {
       console.warn("[AI] WARNING: ANTHROPIC_API_KEY is missing!");
     }
     
     if (env.OPENAI_API_KEY) {
-      console.log("[AI] OpenAI Key Detected. Initializing GPT-4o...");
+      logger.info("OpenAI Key Detected. Initializing GPT-4o...");
       this.openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
     }
   }
@@ -390,19 +391,19 @@ export class RegistrationIntakeService {
   ): Promise<IntakeDecision> {
     try {
       if (this.anthropic) {
-        console.log("[AI] Routing to Claude...");
+        logger.info("Routing to Claude...", { sessionId: session.id });
         return await this.processWithClaude(session, inboundText, profileName);
       }
     } catch (err) {
-      console.error("[AI] Anthropic/Claude failed:", err);
+      logger.error("Anthropic/Claude failed", { error: err, sessionId: session.id });
     }
 
     if (this.openai) {
       try {
-        console.log("[AI] Routing to OpenAI fallback...");
+        logger.info("Routing to OpenAI fallback...", { sessionId: session.id });
         return await this.processWithOpenAI(session, inboundText, profileName);
       } catch (err) {
-        console.error("[AI] OpenAI failed:", err);
+        logger.error("OpenAI failed", { error: err, sessionId: session.id });
       }
     }
 
@@ -497,7 +498,7 @@ export class RegistrationIntakeService {
     const client = this.anthropic;
     if (!client) throw new Error("Anthropic client not initialized.");
     
-    console.log(`[AI] Processing turn with model: "${this.env.ANTHROPIC_MODEL}"`);
+    logger.info(`Processing turn with model: "${model}"`, { sessionId: session.id });
 
     const validation = validateRegistrationData(session.collectedData);
     const recentTurns = session.history.slice(-10).map((turn) => ({

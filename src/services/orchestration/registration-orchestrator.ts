@@ -13,6 +13,8 @@ import type { FileStorageService } from "../storage/file-storage.js";
 import type { WhatsAppProvider } from "../whatsapp/provider.js";
 import type { AgentDecisionEngine } from "../ai/agent-decision-engine.js";
 import { WebhookService } from "../monitoring/webhook-service.js";
+import { logger } from "../utils/logger.js";
+import { RemitaService } from "../payment/remita-service.js";
 
 function normalizePhone(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, "").toLowerCase();
@@ -44,6 +46,7 @@ export class RegistrationOrchestrator {
     private readonly jobScheduler: AutomationJobScheduler,
     private readonly adl: AgentDecisionEngine,
     private readonly webhooks: WebhookService,
+    private readonly remita: RemitaService,
     private readonly cacAccountStore?: ICacAccountStore
   ) {
     this.agentPhones = new Set(env.agentPhoneNumbers.map((value) => normalizePhone(value)));
@@ -369,7 +372,28 @@ export class RegistrationOrchestrator {
     const hasRrr = inboundText.match(/\b\d{12}\b/);
 
     if (isAwaitingPayment && (hasPaymentKeyword || hasRrr)) {
-      this.appendAudit(session, "client", "payment_intent_detected", { text: inboundText });
+      const rrr = hasRrr ? hasRrr[0] : session.collectedData.payment?.rrr;
+      
+      this.appendAudit(session, "client", "payment_intent_detected", { text: inboundText, rrr });
+      
+      if (rrr) {
+        const remitaStatus = await this.remita.verifyRRR(rrr);
+        if (remitaStatus.status === 'PAID') {
+          this.setState(session, "PAYMENT_CONFIRMED", "remita_verified");
+          session.collectedData.payment = {
+            ...session.collectedData.payment,
+            rrr,
+            paidAt: new Date().toISOString(),
+            amountNaira: remitaStatus.amount
+          };
+          await this.persist(session);
+          await this.jobScheduler.enqueueResumePayment(session.id);
+          return "Great news! I’ve verified your Remita payment. 💳\n\nI am resuming your registration now. I'll notify you the moment it's finalized!";
+        } else {
+          return `I see you're mentioning a payment, but the Remita RRR ${rrr} still shows as PENDING. \n\nPlease make sure the payment is successful and try again in a few minutes!`;
+        }
+      }
+
       this.setState(session, "PAYMENT_CONFIRMED", "auto_payment_detected");
       await this.persist(session);
       await this.jobScheduler.enqueueResumePayment(session.id);

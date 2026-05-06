@@ -29,6 +29,8 @@ import { renderDocsPage } from "./services/docs/html.js";
 import { renderApiKeysPage } from "./services/dashboard/html.js";
 import { ApiKeyService } from "./services/auth/api-key-service.js";
 import { WebhookService } from "./services/monitoring/webhook-service.js";
+import { RemitaService } from "./services/payment/remita-service.js";
+import { logger } from "./services/utils/logger.js";
 
 const apiKeyService = new ApiKeyService();
 const webhookService = new WebhookService();
@@ -91,6 +93,7 @@ export async function buildApp(env: Env) {
   const marketing = new MarketingStore();
   
   const jobScheduler = new SupabaseJobScheduler(store);
+  const remitaService = new RemitaService(env);
 
   const orchestrator = new RegistrationOrchestrator(
     env,
@@ -102,6 +105,7 @@ export async function buildApp(env: Env) {
     jobScheduler,
     adl,
     webhookService,
+    remitaService,
     cacAccountStore
   );
 

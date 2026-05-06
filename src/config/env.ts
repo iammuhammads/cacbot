@@ -62,6 +62,10 @@ const envSchema = z.object({
   VAULT_TOKEN: z.string().optional(),
   LOCAL_STORAGE_ROOT: z.string().default("storage"),
   ARTIFACTS_ROOT: z.string().default("artifacts"),
+  LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
+  REMITA_MERCHANT_ID: z.string().optional(),
+  REMITA_API_KEY: z.string().optional(),
+  REMITA_BASE_URL: z.string().url().optional(),
   CAC_DEMO_NETWORK: z.enum(["offline", "fail-fast", "online"]).optional()
 });
 
@@ -86,9 +90,11 @@ export const env = {
   secretsBackend: parsed.SECRETS_BACKEND
 };
 
+import { logger } from "../services/utils/logger.js";
+
 if (env.ANTHROPIC_API_KEY) {
   const mask = env.ANTHROPIC_API_KEY.substring(0, 10);
-  console.log(`[config] Anthropic API Key loaded. Prefix: ${mask}... (Length: ${env.ANTHROPIC_API_KEY.length})`);
+  logger.info(`Anthropic API Key loaded. Prefix: ${mask}... (Length: ${env.ANTHROPIC_API_KEY.length})`);
 }
 
 export type Env = typeof env;
