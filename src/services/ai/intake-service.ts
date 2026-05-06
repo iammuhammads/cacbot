@@ -537,9 +537,12 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
 - Fields to focus on now: ${validation.missingFields.slice(0, 2).join(", ")}
 `;
 
+    // Optimized model choice for speed: Use Haiku for simple chat, Sonnet for data extraction
+    const model = validation.missingFields.length > 0 ? this.env.ANTHROPIC_MODEL : "claude-3-haiku-20240307";
+
     const response = await client.messages.create({
-      model: this.env.ANTHROPIC_MODEL,
-      max_tokens: 4096,
+      model: model,
+      max_tokens: 1024,
       system: systemPrompt,
       tools: [
         {

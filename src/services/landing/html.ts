@@ -598,6 +598,22 @@ export function renderChatPage(env: any): string {
         line-height: 1.5; text-shadow: 0 0 5px var(--accent);
       }
       .terminal-line { margin-bottom: 8px; opacity: 0; transform: translateX(-10px); animation: slideIn 0.3s forwards; }
+
+      /* Typing Indicator */
+      .typing { padding: 12px 20px !important; width: fit-content; }
+      .typing-dots { display: flex; gap: 4px; align-items: center; height: 20px; }
+      .typing-dots span {
+        width: 6px; height: 6px; background: var(--accent);
+        border-radius: 50%; opacity: 0.4;
+        animation: typing 1.4s infinite ease-in-out;
+      }
+      .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+      .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes typing {
+        0%, 100% { transform: translateY(0); opacity: 0.4; }
+        50% { transform: translateY(-4px); opacity: 1; }
+      }
+      .typing-dots span { display: inline-block; }
       @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
 
       /* Matrix Background for Terminal */
@@ -685,8 +701,31 @@ export function renderChatPage(env: any): string {
       const terminalBody = document.getElementById('terminalBody');
       const matrixCanvas = document.getElementById('matrixCanvas');
 
-      let userId = localStorage.getItem('asbestos_user_id') || null;
-      let chatHistory = JSON.parse(localStorage.getItem('asbestos_history')) || [];
+      let userId = localStorage.getItem('asbestos_user_id');
+      let chatHistory = JSON.parse(localStorage.getItem('asbestos_history') || '[]');
+
+      async function initUser() {
+        if (window.Clerk && window.Clerk.user) {
+          userId = window.Clerk.user.id;
+          localStorage.setItem('asbestos_user_id', userId);
+          // Try to load previous session from server
+          try {
+            const res = await fetch(`/sessions/${userId}`);
+            if (res.ok) {
+              const session = await res.json();
+              if (session.history) {
+                chatBody.innerHTML = ''; // Clear defaults
+                session.history.forEach(turn => {
+                  addMessage(turn.text, turn.role === 'client' ? 'user' : 'bot');
+                });
+              }
+            }
+          } catch (e) { console.error("Failed to load session:", e); }
+        }
+      }
+
+      if (window.Clerk) initUser();
+      else window.addEventListener('load', initUser);
       let isAutomating = false;
       let lastStepIndex = -1;
 

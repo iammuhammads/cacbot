@@ -242,8 +242,8 @@ export async function buildApp(env: Env) {
   });
 
   app.get("/sessions", async (request) => {
-    const query = request.query as { state?: SessionState };
-    const sessions = await orchestrator.listSessions(query.state);
+    const query = request.query as { state?: SessionState, agentId?: string };
+    const sessions = await orchestrator.listSessions(query.state, query.agentId);
     return sessions.map((session) => ({
       id: session.id,
       state: session.state,
@@ -292,8 +292,9 @@ export async function buildApp(env: Env) {
     }
   });
 
-  app.get("/dashboard", { preHandler: [requireAuth] }, async (_request, reply) => {
-    const sessions = await orchestrator.listSessions();
+  app.get("/dashboard", { preHandler: [requireAuth] }, async (request, reply) => {
+    const { userId } = getAuth(request) as any;
+    const sessions = await orchestrator.listSessions(userId);
     const queue = await store.listByStates(["READY_FOR_SUBMISSION", "SUBMITTING", "PAYMENT_CONFIRMED", "AWAITING_OTP"]);
     
     // Real-Time Health Diagnostics

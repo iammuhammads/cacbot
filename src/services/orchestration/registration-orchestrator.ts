@@ -754,9 +754,11 @@ export class RegistrationOrchestrator {
     }
   }
 
-  async listSessions(state?: SessionState): Promise<SessionRecord[]> {
-    if (state) return this.store.listByState(state);
-    return this.store.listAll();
+  async listSessions(state?: SessionState, agentId?: string): Promise<SessionRecord[]> {
+    let all = state ? await this.store.listByState(state) : await this.store.listAll();
+    if (!agentId) return all;
+    // Show sessions assigned to this agent OR unassigned sessions (to allow claiming)
+    return all.filter(s => !s.assignedAgent || s.assignedAgent === agentId);
   }
 
   async getSession(sessionId: string): Promise<SessionRecord | null> {
