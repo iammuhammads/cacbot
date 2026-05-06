@@ -470,7 +470,8 @@ export class RegistrationOrchestrator {
          }
       }
 
-      const progressHeader = `[Step ${plan.currentStepIndex + 1}/${plan.steps.length}: ${plan.steps[plan.currentStepIndex]?.label}]\n\n`;
+      // Natural conversation flow - no progress header
+      const progressHeader = '';
       let finalReply = resumePrefix + progressHeader + decision.reply;
 
       // --- 🆘 ESCAPE HATCH & EXPLICIT ESCALATION ---
@@ -503,6 +504,7 @@ export class RegistrationOrchestrator {
         mode: session.behavioralContext.mode
       });
 
+      this.appendTurn(session, "assistant", finalReply);
       await this.persist(session);
       return finalReply;
     } catch (err) {

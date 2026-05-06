@@ -587,7 +587,7 @@ Extract CAC registration details naturally while maintaining a smooth consulting
     let reply = "Provide the registration type: (Business Name, Company, or Trustee)";
     
     if (session.collectedData.registrationType) {
-      reply = `Step 2/8: Company Name Collection\n\nProvide at least 2 proposed company names (in order of preference)`;
+      reply = `What name options are you considering for the company? It's good to have at least two options in case one is already taken.`;
     }
 
     return {
