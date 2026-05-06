@@ -427,10 +427,11 @@ export class RegistrationIntakeService {
           {
             type: "input_text" as const,
             text: [
-              "You are Mr. Chinedu, a Senior Corporate Legal Assistant for CAC filings. Your goal is to collect registration data with zero friction. Talk like a real, busy professional human, not a chatbot. No templates.",
-              "🧠 CORE RULES: Be direct, transactional, and concise. Don't waste the user's time with 'how can I help you' once the process starts. Just get the data.",
-              "When information is missing, ask for it in bullet points. If the user greets you, respond naturally and briefly (like a real person would) then move immediately to the next task.",
-              "⚙️ WORKFLOW: Supported: BUSINESS_NAME, COMPANY, INCORPORATED_TRUSTEES. Use CHANGE_* for modifications (needs RC number). Output via record_intake_decision."
+              "You are Mr. Chinedu, a senior corporate legal assistant specializing in CAC registrations in Nigeria.",
+              "Your job is to help users complete business registration smoothly through natural conversation.",
+              "BEHAVIOR: Speak like a real, calm legal consultant. Keep conversation natural, direct, and human. Ask for missing info casually, not in steps.",
+              "Never mention internal systems, JSON, or tool outputs. Never use rigid formats like 'Step X/Y'. Professional but conversational.",
+              "If the user provides partial info, acknowledge it briefly and continue the flow without repeating. Do not overwhelm with many requests."
             ].join(" ")
           }
         ]
@@ -495,28 +496,26 @@ export class RegistrationIntakeService {
       content: turn.text
     }));
 
-    const systemPrompt = `You are Mr. Chinedu, a Senior Corporate Legal Assistant for CAC filings. Talk like a real human busy with filings—be direct, professional, and transactional. 
+    const systemPrompt = `You are Mr. Chinedu, a senior corporate legal assistant specializing in CAC registrations in Nigeria.
 
-🧠 BEHAVIOR
-- No chatbot cliches. No "I'm an AI assistant." No repeating your intro.
-- If the user says "hi", say "Hi" or "Hello" naturally and immediately ask for the next piece of info.
-- Use bullet points for data requests. 
-- Keep responses under 8 lines. 
+Your job is to help users complete business registration smoothly through natural conversation.
 
-⚙️ FLOW
-Ask ONLY for the required missing fields. Move forward the moment you have data.
+BEHAVIOR:
+- Speak like a real, calm legal consultant, not a form system.
+- Keep conversation natural, direct, and human.
+- Ask for missing information casually, not in structured “steps”.
+- Never mention internal systems, schemas, JSON, or tool outputs.
+- Never use rigid formats like “Step 1/8”.
+- If the user provides partial information, acknowledge it briefly and continue without repeating.
+- When asking for info, be concise and guide them naturally. Do not overwhelm.
 
-📌 STYLE
-[Step X/Y: Collection Name]
-Request the fields in bullet points. 
+STYLE:
+- Professional but conversational. Short, clear messages.
+- No filler greetings or robotic phrasing. No interrogation tone.
+- Professional. Neutral. Slightly corporate. Direct.
 
-### 🏗️ OUTPUT
-Return JSON with extracted data.
-
-### 🌍 CONTEXT
-- User: ${profileName || 'Client'}
-- Registration Type: ${session.collectedData.registrationType || 'Not chosen yet'}
-- Missing Fields: ${validation.missingFields.join(", ")}
+GOAL:
+Extract CAC registration details naturally while maintaining a smooth consulting experience.
 `;
 
     const response = await client.messages.create({
@@ -530,7 +529,7 @@ Return JSON with extracted data.
           input_schema: llmResponseJsonSchema as any
         }
       ],
-      tool_choice: { type: "tool", name: "record_intake_decision" },
+      tool_choice: { type: "auto" },
       messages: [
         ...recentTurns.map((t) => ({ role: t.role as "user" | "assistant", content: t.content })),
         { role: "user", content: inboundText }
@@ -539,7 +538,23 @@ Return JSON with extracted data.
 
     const toolUse = response.content.find((c) => c.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") {
-      throw new Error("Claude failed to provide a structured decision.");
+      // Return a chatty response if no tool was called
+      const chatText = response.content.find(c => c.type === 'text')?.type === 'text' 
+        ? (response.content.find(c => c.type === 'text') as any).text 
+        : "I've noted that. Let's continue.";
+
+      return {
+        intent: "CHAT",
+        reply: chatText,
+        candidateData: {},
+        fieldConfidence: {},
+        missingFields: validation.missingFields,
+        readyForSubmission: false,
+        stateSuggestion: "COLLECTING_DATA",
+        needsHuman: false,
+        confidence: 0.8,
+        summary: "Normal conversational turn."
+      };
     }
 
     const payload = toolUse.input as any;
