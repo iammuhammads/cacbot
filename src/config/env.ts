@@ -23,7 +23,7 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-4o"),
   ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().default("claude-3-5-sonnet-latest"),
+  ANTHROPIC_MODEL: z.string().default("claude-3-5-sonnet-20241022"),
   CLERK_PUBLISHABLE_KEY: z.string().optional(),
   CLERK_SECRET_KEY: z.string().optional(),
   AGENT_PHONE_NUMBERS: z.string().default(""),
