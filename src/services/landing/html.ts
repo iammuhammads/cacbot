@@ -706,21 +706,25 @@ export function renderChatPage(env: any): string {
 
       async function initUser() {
         if (window.Clerk && window.Clerk.user) {
-          userId = window.Clerk.user.id;
-          localStorage.setItem('asbestos_user_id', userId);
+          const uId = window.Clerk.user.id;
+          userId = uId;
+          localStorage.setItem('asbestos_user_id', uId);
           // Try to load previous session from server
           try {
-            const res = await fetch(`/sessions/${userId}`);
+            const res = await fetch('/sessions/' + uId);
             if (res.ok) {
               const session = await res.json();
-              if (session.history) {
+              if (session.history && session.history.length > 0) {
                 chatBody.innerHTML = ''; // Clear defaults
                 session.history.forEach(turn => {
-                  addMessage(turn.text, turn.role === 'client' ? 'user' : 'bot');
+                  const role = turn.role === 'client' ? 'user' : 'bot';
+                  addMessage(turn.text, role);
                 });
               }
             }
-          } catch (e) { console.error("Failed to load session:", e); }
+          } catch (e) { 
+            console.error("Failed to load session:", e); 
+          }
         }
       }
 

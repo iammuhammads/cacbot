@@ -15,6 +15,7 @@ import type { AgentDecisionEngine } from "../ai/agent-decision-engine.js";
 import { WebhookService } from "../monitoring/webhook-service.js";
 import { logger } from "../utils/logger.js";
 import { RemitaService } from "../payment/remita-service.js";
+import { NotificationService } from "../notifications/notification-service.js";
 
 function normalizePhone(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, "").toLowerCase();
@@ -47,6 +48,7 @@ export class RegistrationOrchestrator {
     private readonly adl: AgentDecisionEngine,
     private readonly webhooks: WebhookService,
     private readonly remita: RemitaService,
+    private readonly notifications: NotificationService,
     private readonly cacAccountStore?: ICacAccountStore
   ) {
     this.agentPhones = new Set(env.agentPhoneNumbers.map((value) => normalizePhone(value)));
@@ -86,6 +88,13 @@ export class RegistrationOrchestrator {
         data: session.collectedData,
         timestamp: session.updatedAt
       }).catch(err => console.error("[webhook] Error in background notify", err));
+
+      // Proactive Alerts
+      if (state === "COMPLETED") {
+        this.notifications.notifySubmissionCompleted(session).catch(() => {});
+      } else if (state === "MANUAL_REVIEW") {
+        // Potentially notify an agent here
+      }
     }
   }
 
@@ -388,10 +397,20 @@ export class RegistrationOrchestrator {
           };
           await this.persist(session);
           await this.jobScheduler.enqueueResumePayment(session.id);
+          await this.notifications.notifyPaymentConfirmed(session);
+
           return "Great news! I’ve verified your Remita payment. 💳\n\nI am resuming your registration now. I'll notify you the moment it's finalized!";
         } else {
+          // If keys are missing, we don't want to keep saying "it's pending" if we can't actually check.
+          if (!this.remita.hasKeys()) {
+            return `I've received your payment notification. 💳\n\nI’ve alerted one of our human agents to verify the RRR ${rrr} manually. I'll continue your registration the moment it's confirmed!`;
+          }
           return `I see you're mentioning a payment, but the Remita RRR ${rrr} still shows as PENDING. \n\nPlease make sure the payment is successful and try again in a few minutes!`;
         }
+      }
+
+      if (!this.remita.hasKeys()) {
+         return "I’ve received your payment notification. 💳\n\nI’ve alerted our team to verify it manually. I'll notify you the moment your registration is resumed!";
       }
 
       this.setState(session, "PAYMENT_CONFIRMED", "auto_payment_detected");

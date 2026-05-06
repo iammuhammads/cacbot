@@ -498,7 +498,7 @@ export class RegistrationIntakeService {
     const client = this.anthropic;
     if (!client) throw new Error("Anthropic client not initialized.");
     
-    logger.info(`Processing turn with model: "${model}"`, { sessionId: session.id });
+
 
     const validation = validateRegistrationData(session.collectedData);
     const recentTurns = session.history.slice(-10).map((turn) => ({
@@ -540,6 +540,8 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
 
     // Optimized model choice for speed: Use Haiku for simple chat, Sonnet for data extraction
     const model = validation.missingFields.length > 0 ? this.env.ANTHROPIC_MODEL : "claude-3-haiku-20240307";
+
+    logger.info(`Processing turn with model: "${model}"`, { sessionId: session.id });
 
     const response = await client.messages.create({
       model: model,

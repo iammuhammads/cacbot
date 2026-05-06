@@ -30,6 +30,7 @@ import { renderApiKeysPage } from "./services/dashboard/html.js";
 import { ApiKeyService } from "./services/auth/api-key-service.js";
 import { WebhookService } from "./services/monitoring/webhook-service.js";
 import { RemitaService } from "./services/payment/remita-service.js";
+import { NotificationService } from "./services/notifications/notification-service.js";
 import { logger } from "./services/utils/logger.js";
 
 const apiKeyService = new ApiKeyService();
@@ -94,11 +95,13 @@ export async function buildApp(env: Env) {
   
   const jobScheduler = new SupabaseJobScheduler(store);
   const remitaService = new RemitaService(env);
+  const notificationService = new NotificationService(env, createWhatsAppProvider(env));
 
+  const whatsapp = createWhatsAppProvider(env);
   const orchestrator = new RegistrationOrchestrator(
     env,
     store,
-    provider,
+    whatsapp,
     intakeService,
     fileStorage,
     automation,
@@ -106,6 +109,7 @@ export async function buildApp(env: Env) {
     adl,
     webhookService,
     remitaService,
+    notificationService,
     cacAccountStore
   );
 
@@ -169,11 +173,34 @@ export async function buildApp(env: Env) {
     return { linked: true, email: stored.email, useProfessionalAccount: Boolean(stored.useProfessionalAccount) };
   });
 
-  app.post("/api/unlink-cac", { preHandler: [requireAuth] }, async (request, reply) => {
-    const { userId } = getAuth(request) as any;
-    if (!userId) return reply.code(401).send({ error: "Unauthorized" });
-    await cacAccountStore.deleteAccount(userId);
+  app.post("/api/unlink-cac", { preHandler: [requireAuth] }, async (request) => {
+    const { userId } = getAuth(request);
+    await cacAccountStore.deleteAccount(userId!);
     return { ok: true };
+  });
+
+  // File Proxy for Dashboard Previews
+  app.get("/api/files/:path", { preHandler: [requireAuth] }, async (request, reply) => {
+    const { path } = request.params as { path: string };
+    // Simple base64 decoding if the path was encoded, or just use as is
+    const decodedPath = decodeURIComponent(path);
+    
+    try {
+      const data = await storageProvider.download(decodedPath);
+      
+      let contentType = "application/octet-stream";
+      if (decodedPath.endsWith(".png")) contentType = "image/png";
+      else if (decodedPath.endsWith(".jpg") || decodedPath.endsWith(".jpeg")) contentType = "image/jpeg";
+      else if (decodedPath.endsWith(".pdf")) contentType = "application/pdf";
+      else if (decodedPath.endsWith(".webp")) contentType = "image/webp";
+
+      reply.header("Content-Type", contentType);
+      // Cache for 1 hour
+      reply.header("Cache-Control", "public, max-age=3600");
+      return data;
+    } catch (err) {
+      return reply.code(404).send({ error: "File not found" });
+    }
   });
 
   app.get("/", async (_request, reply) => {

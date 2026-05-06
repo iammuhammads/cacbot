@@ -11,6 +11,8 @@ import { SupabaseStorageProvider } from "./services/storage/supabase-storage-pro
 import { createWhatsAppProvider } from "./services/whatsapp/provider.js";
 import { SupabaseCacAccountStore } from "./repositories/supabase-cac-account-store.js";
 import { WebhookService } from "./services/monitoring/webhook-service.js";
+import { RemitaService } from "./services/payment/remita-service.js";
+import { NotificationService } from "./services/notifications/notification-service.js";
 
 async function main() {
   assertRuntimeConfig(env);
@@ -26,16 +28,19 @@ async function main() {
 
   const adl = new (await import("./services/ai/agent-decision-engine.js")).AgentDecisionEngine(env);
 
+  const whatsapp = createWhatsAppProvider(env);
   const orchestrator = new RegistrationOrchestrator(
     env,
     store,
-    createWhatsAppProvider(env),
+    whatsapp,
     new RegistrationIntakeService(env),
     new FileStorageService(env, storage),
     new CacAutomationService(env, createOtpResolver(env), storage, adl),
     new NoopAutomationJobScheduler(),
     adl,
     new WebhookService(),
+    new RemitaService(env),
+    new NotificationService(env, whatsapp),
     cacAccountStore
   );
 

@@ -148,7 +148,7 @@ function layout(title: string, body: string, activePage: string = "overview"): s
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
         --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
         --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
-        --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+        --shadow-glow: 0 0 20px rgba(16, 185, 129, 0.15);
       }
 
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -163,7 +163,119 @@ function layout(title: string, body: string, activePage: string = "overview"): s
         -webkit-font-smoothing: antialiased;
       }
 
-      /* ─── Scrollbar ─── */
+      /* --- Premium Polish --- */
+      .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+      .detail-card {
+        background: var(--card);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s ease;
+      }
+      .detail-card:hover { border-color: var(--border-light); box-shadow: var(--shadow-lg); }
+
+      .doc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+      }
+      .doc-card {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: transform 0.2s ease;
+        cursor: pointer;
+      }
+      .doc-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+      .doc-preview {
+        height: 100px;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .doc-preview img { width: 100%; height: 100%; object-fit: cover; }
+      .doc-info { padding: 8px; font-size: 0.7rem; }
+      .doc-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+      .doc-kind { color: var(--text-muted); text-transform: uppercase; font-size: 0.6rem; margin-top: 2px; }
+
+      /* --- Audit Timeline --- */
+      .audit-list { position: relative; padding-left: 20px; }
+      .audit-list::before {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 8px;
+        bottom: 8px;
+        width: 1px;
+        background: var(--border);
+      }
+      .audit-entry {
+        position: relative;
+        padding-bottom: 20px;
+        display: flex;
+        gap: 16px;
+      }
+      .audit-dot {
+        position: absolute;
+        left: -20px;
+        top: 6px;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        border: 2px solid var(--bg);
+        z-index: 2;
+      }
+      .audit-time { font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; }
+      .audit-actor { font-weight: 800; font-size: 0.75rem; text-transform: uppercase; color: var(--accent); }
+      .audit-action { font-size: 0.8rem; color: var(--text-secondary); }
+
+      /* --- Onboarding Overlay --- */
+      #onboarding-overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 2000;
+        display: none;
+        backdrop-filter: blur(4px);
+        pointer-events: auto;
+      }
+      .tour-spotlight {
+        position: absolute;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+        border: 3px solid var(--accent);
+        border-radius: 12px;
+        z-index: 2001;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+      }
+      .tour-tooltip {
+        position: absolute;
+        width: 300px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        z-index: 2002;
+        box-shadow: var(--shadow-lg);
+        animation: tourBounce 0.4s ease-out;
+      }
+      @keyframes tourBounce { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      .tour-title { font-weight: 800; color: var(--accent); margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase; }
+      .tour-text { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
+      .tour-actions { display: flex; justify-content: space-between; align-items: center; }
+      .tour-btn { padding: 6px 12px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 700; }
+      .tour-btn-next { background: var(--accent); color: white; }
+      .tour-btn-skip { background: transparent; color: var(--text-muted); }
+
+      /* --- Scrollbar --- */
       ::-webkit-scrollbar { width: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -1173,8 +1285,12 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
         <h1>Command Center</h1>
         <p>${new Date().toLocaleDateString("en-NG", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
       </div>
-      <div class="topbar-right">
-        <div class="system-status">
+        <div class="topbar-right">
+          <button onclick="startTour()" class="btn btn-outline" style="font-size: 0.75rem; border-color: var(--accent); color: var(--accent);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            Start Tour
+          </button>
+          <div class="user-badge">
           <div class="pulse-dot" style="background: ${health.db && health.ai ? 'var(--success)' : 'var(--warning)'};"></div>
           System Pulse: ${health.db && health.ai ? 'OPTIMAL' : 'DEGRADED'}
         </div>
@@ -1317,6 +1433,115 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
       </script>
       </div>
     </div>
+    </div>
+    <div id="onboarding-overlay"></div>
+    <div id="tour-spotlight" class="tour-spotlight" style="display:none;"></div>
+    <div id="tour-tooltip" class="tour-tooltip" style="display:none;"></div>
+
+    <script>
+      const tourSteps = [
+        {
+          title: "Welcome, Agent! 💼",
+          text: "I'm Mr. Chinedu's Command Center. Let's show you how to manage your business registrations efficiently.",
+          target: ".logo",
+          pos: "bottom"
+        },
+        {
+          title: "System Pulse 💓",
+          text: "Keep an eye on these! They show the real-time health of the WhatsApp gateway and the CAC Portal.",
+          target: ".stats-grid:first-child",
+          pos: "bottom"
+        },
+        {
+          title: "Active Sessions 📋",
+          text: "Here you can see all ongoing registrations. Filter them by status like 'Awaiting Payment' or 'Errors' to stay focused.",
+          target: ".table-section",
+          pos: "top"
+        },
+        {
+          title: "Automation Queue 🤖",
+          text: "This is where the magic happens. Monitor background tasks as Chinedu works his way through the CAC portal for you.",
+          target: "div[style*='sticky']",
+          pos: "left"
+        },
+        {
+          title: "AI & Settings ⚙️",
+          text: "Need to link your CAC account or update Chinedu's personality? Head over to settings anytime.",
+          target: ".sidebar-nav a[href='/dashboard/settings']",
+          pos: "right"
+        }
+      ];
+
+      let currentStep = 0;
+
+      function startTour() {
+        currentStep = 0;
+        document.getElementById('onboarding-overlay').style.display = 'block';
+        showStep();
+      }
+
+      function showStep() {
+        const step = tourSteps[currentStep];
+        const targetEl = document.querySelector(step.target);
+        const spotlight = document.getElementById('tour-spotlight');
+        const tooltip = document.getElementById('tour-tooltip');
+
+        if (!targetEl) { nextStep(); return; }
+
+        const rect = targetEl.getBoundingClientRect();
+        spotlight.style.display = 'block';
+        spotlight.style.top = (rect.top + window.scrollY - 8) + 'px';
+        spotlight.style.left = (rect.left + window.scrollX - 8) + 'px';
+        spotlight.style.width = (rect.width + 16) + 'px';
+        spotlight.style.height = (rect.height + 16) + 'px';
+
+        tooltip.style.display = 'block';
+        tooltip.innerHTML = '<div class="tour-title">' + step.title + '</div>' +
+          '<div class="tour-text">' + step.text + '</div>' +
+          '<div class="tour-actions">' +
+            '<button class="tour-btn tour-btn-skip" onclick="endTour()">Skip</button>' +
+            '<button class="tour-btn tour-btn-next" onclick="nextStep()">' + (currentStep === tourSteps.length - 1 ? 'Finish' : 'Next') + '</button>' +
+          '</div>';
+
+        // Position tooltip
+        if (step.pos === 'bottom') {
+          tooltip.style.top = (rect.bottom + window.scrollY + 20) + 'px';
+          tooltip.style.left = (rect.left + window.scrollX) + 'px';
+        } else if (step.pos === 'top') {
+          tooltip.style.top = (rect.top + window.scrollY - tooltip.offsetHeight - 20) + 'px';
+          tooltip.style.left = (rect.left + window.scrollX) + 'px';
+        } else if (step.pos === 'left') {
+          tooltip.style.top = (rect.top + window.scrollY) + 'px';
+          tooltip.style.left = (rect.left + window.scrollX - tooltip.offsetWidth - 20) + 'px';
+        } else if (step.pos === 'right') {
+          tooltip.style.top = (rect.top + window.scrollY) + 'px';
+          tooltip.style.left = (rect.right + window.scrollX + 20) + 'px';
+        }
+      }
+
+      function nextStep() {
+        currentStep++;
+        if (currentStep >= tourSteps.length) {
+          endTour();
+        } else {
+          showStep();
+        }
+      }
+
+      function endTour() {
+        document.getElementById('onboarding-overlay').style.display = 'none';
+        document.getElementById('tour-spotlight').style.display = 'none';
+        document.getElementById('tour-tooltip').style.display = 'none';
+        localStorage.setItem('dashboard_tour_completed', 'true');
+      }
+
+      // Auto-start tour if never completed
+      window.onload = () => {
+        if (!localStorage.getItem('dashboard_tour_completed')) {
+          setTimeout(startTour, 1500);
+        }
+      };
+    </script>
   `, "overview");
 }
 
@@ -1356,8 +1581,25 @@ export function renderDashboardDetail(session: SessionRecord): string {
     .join("");
 
   const docs = data.documents
-    .map((d: any) => `<div class="info-row"><span class="info-label">${escapeHtml(d.kind)}</span><span class="info-value">${escapeHtml(d.fileName)}</span></div>`)
+    .map((d: any) => {
+      const isImage = /\.(jpg|jpeg|png|webp)$/i.test(d.fileName);
+      const fileUrl = `/api/files/${encodeURIComponent(d.storagePath || d.localPath || '')}`;
+      return `
+        <div class="doc-card" onclick="window.open('${fileUrl}', '_blank')">
+          <div class="doc-preview">
+            ${isImage 
+              ? `<img src="${fileUrl}" alt="${escapeHtml(d.kind)}" loading="lazy">` 
+              : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`}
+          </div>
+          <div class="doc-info">
+            <div class="doc-name">${escapeHtml(d.fileName)}</div>
+            <div class="doc-kind">${escapeHtml(d.kind)}</div>
+          </div>
+        </div>`;
+    })
     .join("");
+
+  const docHtml = docs ? `<div class="doc-grid">${docs}</div>` : '<p style="color: var(--text-muted); font-size: 0.85rem;">No documents uploaded yet.</p>';
 
   return layout("Session Details", `
     <div class="topbar">
@@ -1389,7 +1631,7 @@ export function renderDashboardDetail(session: SessionRecord): string {
 
           <div class="detail-card fade-in fade-in-delay-1">
             <h3>📎 Documents (${data.documents.length})</h3>
-            ${docs || '<p style="color: var(--text-muted); font-size: 0.85rem;">No documents uploaded yet.</p>'}
+            ${docHtml}
           </div>
         </div>
 

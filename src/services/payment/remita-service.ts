@@ -13,6 +13,10 @@ export interface RemitaStatusResponse {
 export class RemitaService {
   constructor(private readonly env: Env) {}
 
+  public hasKeys(): boolean {
+    return !!(this.env.REMITA_MERCHANT_ID && this.env.REMITA_API_KEY);
+  }
+
   /**
    * Verifies the status of a Remita Retrieval Reference (RRR)
    */
