@@ -586,22 +586,35 @@ Use a **Humanization Layer**: Start replies with "Got it.", "Perfect.", or "Alri
     
     // Simple heuristic extraction
     const detected = detectRegistrationType(inboundText);
-    if (detected) candidateData.registrationType = detected;
+    if (detected) {
+      candidateData.registrationType = detected;
+      session.collectedData.registrationType = detected; // Force update for immediate feedback
+    }
     
     const email = extractEmail(inboundText);
     if (email) candidateData.clientEmail = email;
 
+    let reply = "I've noted that. Could you tell me what type of registration you are looking for? (Business Name, Company, or Trustee)";
+    
+    if (session.collectedData.registrationType) {
+      reply = `Got it, we are doing a ${session.collectedData.registrationType.replace('_', ' ')}. What is the preferred name for your business?`;
+    }
+
+    if (session.collectedData.businessNameOptions.length > 0) {
+      reply = "Thanks! Please provide the email address and phone number for the registration.";
+    }
+
     return {
       intent: "DATA_INPUT",
-      reply: "I've noted that. Could you tell me what type of registration you are looking for? (Business Name, Company, or Trustee)",
+      reply: `[System Note: AI Offline] ${reply}`,
       candidateData,
-      fieldConfidence: {},
+      fieldConfidence: detected ? { registrationType: 1 } : {},
       missingFields: validation.missingFields,
       readyForSubmission: false,
       stateSuggestion: "COLLECTING_DATA",
       needsHuman: false,
       confidence: 0.1,
-      summary: "Heuristic fallback triggered."
+      summary: "Heuristic fallback triggered due to AI connectivity issues."
     };
   }
 }
