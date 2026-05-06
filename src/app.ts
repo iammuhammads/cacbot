@@ -269,8 +269,8 @@ export async function buildApp(env: Env) {
     const body = (request.body ?? {}) as { text: string; userId?: string };
     if (!body.text) return reply.code(400).send({ error: "Text is required." });
     
-    // Generate or use provided userId (for web chat we use a 'web:' prefix)
-    const userId = body.userId || `web:${randomUUID()}`;
+    // Generate or use provided userId
+    const userId = body.userId || randomUUID();
     
     try {
       const response = await orchestrator.handleWebChat(userId, body.text);

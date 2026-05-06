@@ -142,7 +142,7 @@ export class RegistrationOrchestrator {
 
   async handleWebChat(userId: string, text: string): Promise<string> {
     const message: NormalizedInboundMessage = {
-      messageId: `web:${randomUUID()}`,
+      messageId: randomUUID(),
       from: userId,
       to: "system",
       text,
