@@ -36,6 +36,7 @@ function extractAgentCommand(text: string): AgentCommand | null {
 
 export class RegistrationOrchestrator {
   private readonly agentPhones: Set<string>;
+  private readonly processingUsers = new Set<string>();
 
   constructor(
     private readonly env: Env,
@@ -333,19 +334,24 @@ export class RegistrationOrchestrator {
   }
 
   private async handleClientMessage(message: NormalizedInboundMessage): Promise<void> {
+    const userId = message.from;
+
+    // --- 🔒 CONCURRENCY LOCK ---
+    if (this.processingUsers.has(userId)) {
+      console.log(`[orchestrator] Skipping duplicate request for ${userId} (already processing)`);
+      return;
+    }
+    this.processingUsers.add(userId);
+
     try {
-      // UX: Send thinking indicator for WhatsApp
-      let typingTimer: NodeJS.Timeout | undefined;
+      // Proactive: Acknowledge receipt for longer processes
       if (message.provider !== 'mock') {
-        typingTimer = setTimeout(() => {
-          this.provider.sendTextMessage(message.from, "_Mr. Chinedu is thinking..._").catch(() => {});
-        }, 1500);
+        // Send initial "Elite Assistant" vibe
+        await this.provider.sendTextMessage(message.from, "_Mr. Chinedu is reviewing your request..._").catch(() => {});
       }
 
       const reply = await this.processMessage(message);
       
-      if (typingTimer) clearTimeout(typingTimer);
-
       await this.provider.sendTextMessage(message.from, reply);
     } catch (error) {
       console.error(`[orchestrator] CRITICAL ERROR handling message from ${message.from}:`, error);
@@ -354,6 +360,8 @@ export class RegistrationOrchestrator {
         message.from,
         "I'm sorry, I encountered an unexpected error while processing your request. My human colleagues have been notified, but please try again in a moment!"
       ).catch(() => {});
+    } finally {
+      this.processingUsers.delete(userId);
     }
   }
 

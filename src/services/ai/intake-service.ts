@@ -391,7 +391,7 @@ export class RegistrationIntakeService {
   ): Promise<IntakeDecision> {
     try {
       if (this.anthropic) {
-        logger.info("Routing to Claude...", { sessionId: session.id });
+        logger.info(`Routing to Claude (${this.env.ANTHROPIC_MODEL})...`, { sessionId: session.id });
         return await this.processWithClaude(session, inboundText, profileName);
       }
     } catch (err) {
@@ -609,10 +609,20 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
     const email = extractEmail(inboundText);
     if (email) candidateData.clientEmail = email;
 
-    let reply = `Hello! I'm Mr. Chinedu, your corporate legal assistant. I can help you register a Business Name, a Company, or Incorporated Trustees. Which one are you looking to start today?`;
+    let reply = "";
     
     if (session.collectedData.registrationType) {
-      reply = `I've noted that we are registering a ${session.collectedData.registrationType.replace(/_/g, ' ').toLowerCase()}. What name options are you considering for it? It's best to have at least two in mind.`;
+      if (inboundText.toLowerCase().includes("how are you") || inboundText.toLowerCase().includes("hello")) {
+        reply = "I am doing well, thank you! Ready to continue with your " + session.collectedData.registrationType.replace(/_/g, ' ').toLowerCase() + " registration. What names are we considering for this entity?";
+      } else {
+        reply = `I've noted that we are registering a ${session.collectedData.registrationType.replace(/_/g, ' ').toLowerCase()}. What name options are you considering for it? It's best to have at least two in mind.`;
+      }
+    } else {
+       if (inboundText.toLowerCase().includes("how are you")) {
+         reply = "I am excellent, thank you! I am here to help you with Nigerian business registrations. Would you like to start a Business Name, a Company, or Incorporated Trustees?";
+       } else {
+         reply = `Hello! I'm Mr. Chinedu, your corporate legal assistant. I can help you register a Business Name, a Company, or Incorporated Trustees. Which one are you looking to start today?`;
+       }
     }
 
     return {
