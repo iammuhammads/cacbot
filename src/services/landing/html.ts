@@ -209,6 +209,21 @@ export function renderLandingPage(env: any): string {
         color: var(--text-muted);
         border-top: 1px solid rgba(0,0,0,0.05);
       }
+
+      /* Mobile Support */
+      @media (max-width: 768px) {
+        .navbar { border-radius: 20px; top: 10px; width: 95%; padding: 8px 16px; }
+        .nav-links { display: none; }
+        .hero { padding: 140px 0 60px; }
+        .hero h1 { font-size: 2.5rem; }
+        .hero p { font-size: 1rem; padding: 0 10px; }
+        .hero-actions { flex-direction: column; align-items: center; }
+        .grid-3 { grid-template-columns: 1fr; }
+        .section { padding: 60px 0; }
+        .section-header h2 { font-size: 2rem; }
+        .demo-section { margin: 20px 12px; padding: 60px 20px; }
+        .demo-section h2 { font-size: 1.8rem; }
+      }
     </style>
   </head>
   <body>
@@ -458,44 +473,40 @@ export function renderChatPage(env: any): string {
         border-bottom: 1px solid var(--border);
         position: sticky; top: 0; z-index: 50;
       }
+
+      /* Mobile Sidebar Adjustments */
+      @media (max-width: 1024px) {
+        .sidebar { 
+          transform: translateX(-100%); 
+          position: fixed; 
+          height: 100vh; 
+          top: 0; 
+          left: 0; 
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 20px 0 50px rgba(0,0,0,0.3); 
+          z-index: 2000;
+        }
+        .sidebar.active { transform: translateX(0); }
+        .chat-header { padding: 16px 20px; }
+        .messages { padding: 20px; }
+        .bubble { padding: 14px 18px; font-size: 0.95rem; }
+        .mobile-chat-toggle { display: flex !important; }
+      }
+
+      .mobile-chat-toggle {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        background: var(--bg-sidebar);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--text-main);
+        cursor: pointer;
+        margin-right: 12px;
+      }
       .chat-title { font-weight: 600; color: white; font-size: 1.1rem; }
-      .agent-status {
-        display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--accent);
-        background: rgba(16, 185, 129, 0.1); padding: 6px 14px; border-radius: 100px; font-weight: 600;
-        border: 1px solid rgba(16, 185, 129, 0.2);
-      }
-      .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
-      @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); } 50% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } }
-
-      .messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 40px;
-        display: flex;
-        flex-direction: column;
-        gap: 32px;
-        scroll-behavior: smooth;
-      }
-
-      .message {
-        display: flex;
-        gap: 20px;
-        max-width: 860px;
-        margin: 0 auto;
-        width: 100%;
-      }
-      .message.user { flex-direction: row-reverse; }
-
-      .avatar {
-        width: 40px; height: 40px;
-        border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      }
-      .bot .avatar { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
-      .user .avatar { background: #1e293b; color: white; border: 1px solid var(--border); }
-
       .bubble {
         padding: 18px 24px;
         border-radius: 18px;
@@ -652,8 +663,13 @@ export function renderChatPage(env: any): string {
     <!-- Main Chat -->
     <div class="chat-container">
       <div class="chat-header">
-        <div class="chat-title">Agent Workspace</div>
-        <div class="agent-status"><div class="dot"></div> System Ready</div>
+        <div style="display: flex; align-items: center;">
+          <button class="mobile-chat-toggle" onclick="document.querySelector('.sidebar').classList.toggle('active')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+          <div class="chat-title">Mr. Chinedu AI Agent</div>
+        </div>
+        <div class="agent-status"><div class="dot"></div> Online</div>
       </div>
       
       <div class="messages" id="chatBody">

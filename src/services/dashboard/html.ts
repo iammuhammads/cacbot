@@ -113,7 +113,7 @@ function layout(title: string, body: string, activePage: string = "overview"): s
 <html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
     <title>${escapeHtml(title)} | Asbestos Command</title>
     <meta name="description" content="Asbestos CAC Agent Dashboard — manage, monitor, and control automated business registrations." />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -236,6 +236,38 @@ function layout(title: string, body: string, activePage: string = "overview"): s
       .audit-time { font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; }
       .audit-actor { font-weight: 800; font-size: 0.75rem; text-transform: uppercase; color: var(--accent); }
       .audit-action { font-size: 0.8rem; color: var(--text-secondary); }
+
+      /* --- Responsive Layout --- */
+      @media (max-width: 1024px) {
+        .sidebar { transform: translateX(-100%); }
+        .sidebar.active { transform: translateX(0); }
+        .main-content { margin-left: 0 !important; width: 100% !important; }
+        .topbar { left: 0 !important; }
+        .mobile-toggle { display: flex !important; }
+      }
+
+      .mobile-toggle {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-right: 16px;
+        cursor: pointer;
+        color: var(--text);
+      }
+
+      @media (max-width: 768px) {
+        .detail-grid { grid-template-columns: 1fr !important; }
+        .stats-grid { grid-template-columns: 1fr !important; }
+        .content-grid { grid-template-columns: 1fr !important; }
+        .topbar { flex-direction: column; align-items: flex-start; gap: 16px; height: auto; padding: 20px; }
+        .topbar-right { width: 100%; justify-content: space-between; }
+        .tour-tooltip { width: calc(100vw - 40px); left: 20px !important; }
+      }
 
       /* --- Onboarding Overlay --- */
       #onboarding-overlay {
@@ -1216,9 +1248,28 @@ function layout(title: string, body: string, activePage: string = "overview"): s
       </script>
     </aside>
 
-    <main class="main">
+    <main class="main-content" style="flex: 1; min-width: 0; transition: all 0.3s ease;">
       ${body}
     </main>
+
+    <div id="onboarding-overlay"></div>
+    <div id="tour-spotlight" class="tour-spotlight" style="display:none;"></div>
+    <div id="tour-tooltip" class="tour-tooltip" style="display:none;"></div>
+
+    <script>
+      function toggleSidebar() {
+        document.querySelector('.sidebar').classList.toggle('active');
+      }
+
+      // Close sidebar when clicking links on mobile
+      document.querySelectorAll('.sidebar-nav a').forEach(link => {
+        link.addEventListener('click', () => {
+          if (window.innerWidth <= 1024) {
+            document.querySelector('.sidebar').classList.remove('active');
+          }
+        });
+      });
+    </script>
   </body>
 </html>`;
 }
@@ -1281,9 +1332,14 @@ export function renderDashboardIndex(sessions: SessionRecord[], health: { db: bo
 
   return layout("Overview", `
     <div class="topbar">
-      <div class="topbar-left">
-        <h1>Command Center</h1>
-        <p>${new Date().toLocaleDateString("en-NG", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+      <div class="topbar-left" style="display: flex; align-items: center;">
+        <button class="mobile-toggle" onclick="toggleSidebar()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div>
+          <h1>Command Center</h1>
+          <p>${new Date().toLocaleDateString("en-NG", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+        </div>
       </div>
         <div class="topbar-right">
           <button onclick="startTour()" class="btn btn-outline" style="font-size: 0.75rem; border-color: var(--accent); color: var(--accent);">
@@ -1603,9 +1659,14 @@ export function renderDashboardDetail(session: SessionRecord): string {
 
   return layout("Session Details", `
     <div class="topbar">
-      <div class="topbar-left">
-        <h1>${escapeHtml(name)}</h1>
-        <p style="font-family: 'SF Mono', monospace; font-size: 0.75rem;">${session.id}</p>
+      <div class="topbar-left" style="display: flex; align-items: center;">
+        <button class="mobile-toggle" onclick="toggleSidebar()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div>
+          <h1>${escapeHtml(name)}</h1>
+          <p style="font-family: 'SF Mono', monospace; font-size: 0.75rem;">${session.id}</p>
+        </div>
       </div>
       <div class="topbar-right">
         <span class="badge" style="background:${badgeBg(session.state)}; color:${badgeColor(session.state)}; font-size: 0.78rem; padding: 6px 16px;">
@@ -1748,9 +1809,14 @@ export function renderDashboardSettings(settings: BotSettings): string {
 
   return layout("AI Config", `
     <div class="topbar">
-      <div class="topbar-left">
-        <h1>AI Configuration</h1>
-        <p>Control your Asbestos agent's personality and deployment.</p>
+      <div class="topbar-left" style="display: flex; align-items: center;">
+        <button class="mobile-toggle" onclick="toggleSidebar()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div>
+          <h1>AI Configuration</h1>
+          <p>Control your Asbestos agent's personality and deployment.</p>
+        </div>
       </div>
     </div>
 
@@ -1896,9 +1962,14 @@ export function renderApiKeysPage(keys: any[]): string {
 
   return layout("API Keys", `
     <div class="topbar">
-      <div class="topbar-left">
-        <h1>Developer API Keys</h1>
-        <p>Integrate Asbestos with your own systems and workflows.</p>
+      <div class="topbar-left" style="display: flex; align-items: center;">
+        <button class="mobile-toggle" onclick="toggleSidebar()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div>
+          <h1>Developer API Keys</h1>
+          <p>Integrate Asbestos with your own systems and workflows.</p>
+        </div>
       </div>
     </div>
 
