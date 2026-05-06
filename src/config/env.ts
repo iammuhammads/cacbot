@@ -86,4 +86,9 @@ export const env = {
   secretsBackend: parsed.SECRETS_BACKEND
 };
 
+if (env.ANTHROPIC_API_KEY) {
+  const mask = env.ANTHROPIC_API_KEY.substring(0, 10);
+  console.log(`[config] Anthropic API Key loaded. Prefix: ${mask}... (Length: ${env.ANTHROPIC_API_KEY.length})`);
+}
+
 export type Env = typeof env;
