@@ -101,6 +101,7 @@ const llmDecisionSchema = z.object({
 });
 
 const llmResponseJsonSchema = {
+  type: "object",
   required: ["intent", "fieldConfidence", "reply", "candidateData", "missingFields", "readyForSubmission", "stateSuggestion", "needsHuman", "confidence"],
   properties: {
     intent: {

@@ -643,13 +643,13 @@ export function renderChatPage(env: any): string {
       <div class="messages" id="chatBody">
         <div class="message bot">
           <div class="avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg></div>
-          <div class="bubble">Hello! I am Asbestos, your Elite Registration Agent. Are you looking to register a Business Name, a Company, or Incorporated Trustees?</div>
+          <div class="bubble">Hello! I am Mr. Chinedu, your Elite Registration Agent. Are you looking to register a Business Name, a Company, or Incorporated Trustees?</div>
         </div>
       </div>
 
       <div class="input-area">
         <form class="input-box" id="chatForm">
-          <input type="text" id="chatInput" placeholder="Message Asbestos to start your filing..." required autocomplete="off">
+          <input type="text" id="chatInput" placeholder="Message Mr. Chinedu to start your filing..." required autocomplete="off">
           <button type="submit" class="send-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           </button>
