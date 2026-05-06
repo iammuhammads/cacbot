@@ -390,15 +390,23 @@ export class RegistrationIntakeService {
   ): Promise<IntakeDecision> {
     try {
       if (this.anthropic) {
+        console.log("[AI] Routing to Claude...");
         return await this.processWithClaude(session, inboundText, profileName);
       }
     } catch (err) {
-      console.error("[AI] Anthropic failed, trying fallback...", err);
+      console.error("[AI] Anthropic/Claude failed:", err);
     }
 
     if (this.openai) {
-      return this.processWithOpenAI(session, inboundText, profileName);
+      try {
+        console.log("[AI] Routing to OpenAI fallback...");
+        return await this.processWithOpenAI(session, inboundText, profileName);
+      } catch (err) {
+        console.error("[AI] OpenAI failed:", err);
+      }
     }
+
+    console.warn("[AI] All AI providers failed. Using HEURISTIC fallback.");
 
     return this.processHeuristically(session, inboundText, profileName);
   }
@@ -431,6 +439,7 @@ export class RegistrationIntakeService {
               "Your job is to help users complete registration through natural, human conversation while silently extracting data.",
               "CORE BEHAVIOR: Speak like a real, calm legal consultant. Natural, simple, human. Never sound like a software system. No steps, no JSON, no tools mentioned.",
               "STYLE: Professional, conversational, and direct. Short responses. No filler greetings or robotic phrasing. No interrogation tone.",
+              "FORMATTING: Never use em-dashes (—). Never use bullet points (* or -). Use plain sentences. Never use \\n\\n* format.",
               "Default to conversation-first behavior. Only switch to structured extraction internally. Never reflect structure in user-facing text."
             ].join(" ")
           }
@@ -514,6 +523,9 @@ STYLE:
 - Short responses (clear and efficient, not robotic).
 - No filler greetings or repetitive confirmations.
 - No interrogation tone.
+- Never use em-dashes (—).
+- Never use bullet points (* or -). Use plain sentences.
+- Never use \n\n* format.
 
 IMPORTANT:
 The intelligence is hidden. The user only sees a human conversation. Default to conversation-first behavior.
@@ -591,10 +603,10 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
     const email = extractEmail(inboundText);
     if (email) candidateData.clientEmail = email;
 
-    let reply = "Provide the registration type: (Business Name, Company, or Trustee)";
+    let reply = `Hello! I'm Mr. Chinedu, your corporate legal assistant. I can help you register a Business Name, a Company, or Incorporated Trustees. Which one are you looking to start today?`;
     
     if (session.collectedData.registrationType) {
-      reply = `What name options are you considering for the company? It's good to have at least two options in case one is already taken.`;
+      reply = `I've noted that we are registering a ${session.collectedData.registrationType.replace(/_/g, ' ').toLowerCase()}. What name options are you considering for it? It's best to have at least two in mind.`;
     }
 
     return {

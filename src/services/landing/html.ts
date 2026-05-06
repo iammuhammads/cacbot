@@ -751,6 +751,20 @@ export function renderChatPage(env: any): string {
         chatBody.scrollTop = chatBody.scrollHeight;
       }
 
+      function showTyping() {
+        const msg = document.createElement('div');
+        msg.className = 'message bot typing';
+        msg.id = 'typing-indicator';
+        msg.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+        chatBody.appendChild(msg);
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+
+      function hideTyping() {
+        const indicator = document.getElementById('typing-indicator');
+        if (indicator) indicator.remove();
+      }
+
       function showTerminalLine(text, color = 'var(--accent)') {
         const line = document.createElement('div');
         line.className = 'terminal-line';
@@ -808,6 +822,7 @@ export function renderChatPage(env: any): string {
           const data = await res.json();
           
           if (data.ok) {
+            hideTyping();
             addMessage(data.text, 'bot');
             if (data.state === 'SUBMITTING') {
               startAutomationPolling();
@@ -820,6 +835,7 @@ export function renderChatPage(env: any): string {
               renderHistory();
             }
           } else {
+            hideTyping();
             addMessage('Error: ' + (data.error || 'Unknown error'), 'bot');
           }
         } catch (err) {
@@ -833,6 +849,7 @@ export function renderChatPage(env: any): string {
         if (!text) return;
         addMessage(text, 'user');
         chatInput.value = '';
+        showTyping();
         sendMessage(text);
       });
     </script>

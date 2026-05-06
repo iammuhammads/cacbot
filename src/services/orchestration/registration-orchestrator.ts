@@ -322,7 +322,18 @@ export class RegistrationOrchestrator {
 
   private async handleClientMessage(message: NormalizedInboundMessage): Promise<void> {
     try {
+      // UX: Send thinking indicator for WhatsApp
+      let typingTimer: NodeJS.Timeout | undefined;
+      if (message.provider !== 'mock') {
+        typingTimer = setTimeout(() => {
+          this.provider.sendTextMessage(message.from, "_Mr. Chinedu is thinking..._").catch(() => {});
+        }, 1500);
+      }
+
       const reply = await this.processMessage(message);
+      
+      if (typingTimer) clearTimeout(typingTimer);
+
       await this.provider.sendTextMessage(message.from, reply);
     } catch (error) {
       console.error(`[orchestrator] CRITICAL ERROR handling message from ${message.from}:`, error);
@@ -503,6 +514,8 @@ export class RegistrationOrchestrator {
         confidence: decision.confidence,
         mode: session.behavioralContext.mode
       });
+
+
 
       this.appendTurn(session, "assistant", finalReply);
       await this.persist(session);
