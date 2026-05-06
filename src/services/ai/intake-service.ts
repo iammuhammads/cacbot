@@ -435,6 +435,7 @@ export class RegistrationIntakeService {
           }
         ]
       },
+      {
         role: "user" as const,
         content: [
           {
@@ -516,7 +517,6 @@ Return JSON with extracted data.
 - User: ${profileName || 'Client'}
 - Registration Type: ${session.collectedData.registrationType || 'Not chosen yet'}
 - Missing Fields: ${validation.missingFields.join(", ")}
-`;
 `;
 
     const response = await client.messages.create({
