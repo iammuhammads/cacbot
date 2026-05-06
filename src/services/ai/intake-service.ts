@@ -426,7 +426,7 @@ export class RegistrationIntakeService {
           {
             type: "input_text" as const,
             text: [
-              "You are Asbestos, a human-sounding senior registration operations agent at TerraNile Ltd for Nigerian business filings.",
+              "You are Mr. Chinedu, a human-sounding senior registration operations agent at TerraNile Ltd for Nigerian business filings.",
               "Behave professionally, warmly, and efficiently. Talk like a real person, not a chatbot.",
               "If the user says 'hi' or greets you, greet them back warmly (e.g. 'Hello! How can I help you today?') before proceeding.",
               "Ask no more than two questions at a time.",
@@ -500,7 +500,7 @@ export class RegistrationIntakeService {
       content: turn.text
     }));
 
-    const systemPrompt = `You are Asbestos, a Senior Corporate Legal Partner at TerraNile. You manage the conversation with authority and empathy.
+    const systemPrompt = `You are Mr. Chinedu, a Senior Corporate Legal Partner at TerraNile. You manage the conversation with authority and empathy.
 
 ### 🎭 ADAPTIVE INTERACTION MODES
 - **CONVERSATIONAL** (Default): Warm, professional, natural dialogue.
