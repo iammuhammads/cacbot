@@ -405,7 +405,7 @@ export class RegistrationOrchestrator {
       if (inactiveHours > 2 && session.state !== "NEW") {
         const type = session.collectedData.registrationType || "registration";
         const name = session.collectedData.businessNameOptions[0] || "your business";
-        resumePrefix = `Welcome back! 👋 I've saved your progress on the *${type}* for *"${name}"*. \n\n`;
+        resumePrefix = `Welcome back! 👋 I've saved your progress for ${name}. \n\n`;
         this.appendAudit(session, "system", "smart_resume_triggered", { inactiveHours });
       }
 
