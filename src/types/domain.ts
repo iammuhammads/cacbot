@@ -215,7 +215,7 @@ export interface NormalizedInboundMessage {
 }
 
 export interface IntakeDecision {
-  intent: "GREETING" | "CAC_INTENT" | "DATA_INPUT" | "CONFUSION" | "IRRELEVANT";
+  intent: "GREETING" | "CAC_INTENT" | "DATA_INPUT" | "CONFUSION" | "IRRELEVANT" | "CHAT";
   suggestedMode?: InteractionMode;
   userBehaviorProfile?: string;
   fieldConfidence: Record<string, number>;

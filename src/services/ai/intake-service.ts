@@ -81,7 +81,7 @@ const candidateDataSchema = z.object({
 });
 
 const llmDecisionSchema = z.object({
-  intent: z.enum(["GREETING", "CAC_INTENT", "DATA_INPUT", "CONFUSION", "IRRELEVANT"]),
+  intent: z.enum(["GREETING", "CAC_INTENT", "DATA_INPUT", "CONFUSION", "IRRELEVANT", "CHAT"]),
   suggestedMode: z.enum(["CONVERSATIONAL", "GUIDED", "STRICT"]).optional(),
   userBehaviorProfile: z.string().optional(),
   fieldConfidence: z.record(z.number()),
@@ -106,7 +106,7 @@ const llmResponseJsonSchema = {
   properties: {
     intent: {
       type: "string",
-      enum: ["GREETING", "CAC_INTENT", "DATA_INPUT", "CONFUSION", "IRRELEVANT"]
+      enum: ["GREETING", "CAC_INTENT", "DATA_INPUT", "CONFUSION", "IRRELEVANT", "CHAT"]
     },
     suggestedMode: {
       type: "string",
