@@ -185,6 +185,31 @@ export class SupabaseSessionStore implements SessionStore {
 
   private mapFromDb(row: any): SessionRecord {
     const now = new Date().toISOString();
+    
+    // Robustly handle missing or empty plan
+    const plan = (row.plan && row.plan.steps) ? row.plan : {
+      currentStepIndex: 0,
+      steps: [
+        { id: "collect_type", label: "Collect registration type", completed: false, blocked: false },
+        { id: "collect_names", label: "Collect business names", completed: false, blocked: false },
+        { id: "collect_directors", label: "Collect directors/proprietors", completed: false, blocked: false },
+        { id: "collect_details", label: "Collect business address & activity", completed: false, blocked: false },
+        { id: "validate_data", label: "Validate all data", completed: false, blocked: false },
+        { id: "submit_cac", label: "Submit to CAC Portal", completed: false, blocked: false },
+        { id: "handle_payment", label: "Process payment", completed: false, blocked: false },
+        { id: "confirm_completion", label: "Confirm submission complete", completed: false, blocked: false }
+      ]
+    };
+
+    // Robustly handle missing or empty behavioral context
+    const behavioralContext = (row.behavioral_context && row.behavioral_context.mode) ? row.behavioral_context : {
+      mode: "CONVERSATIONAL",
+      questionAttempts: {},
+      userConfusionScore: 0,
+      fieldIntegrity: {},
+      lastActivityAt: row.updated_at || now
+    };
+
     return {
       id: row.id,
       userId: row.user_id,
@@ -201,26 +226,8 @@ export class SupabaseSessionStore implements SessionStore {
       },
       history: row.history || [],
       auditTrail: row.audit_trail || [],
-      plan: row.plan || {
-        currentStepIndex: 0,
-        steps: [
-          { id: "collect_type", label: "Collect registration type", completed: false, blocked: false },
-          { id: "collect_names", label: "Collect business names", completed: false, blocked: false },
-          { id: "collect_directors", label: "Collect directors/proprietors", completed: false, blocked: false },
-          { id: "collect_details", label: "Collect business address & activity", completed: false, blocked: false },
-          { id: "validate_data", label: "Validate all data", completed: false, blocked: false },
-          { id: "submit_cac", label: "Submit to CAC Portal", completed: false, blocked: false },
-          { id: "handle_payment", label: "Process payment", completed: false, blocked: false },
-          { id: "confirm_completion", label: "Confirm submission complete", completed: false, blocked: false }
-        ]
-      },
-      behavioralContext: row.behavioral_context || {
-        mode: "CONVERSATIONAL",
-        questionAttempts: {},
-        userConfusionScore: 0,
-        fieldIntegrity: {},
-        lastActivityAt: row.updated_at || now
-      },
+      plan,
+      behavioralContext,
       lastAction: row.last_action || "unknown",
       updatedAt: row.updated_at || now,
       createdAt: row.created_at || now,
