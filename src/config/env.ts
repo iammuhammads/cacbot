@@ -13,7 +13,7 @@ const booleanString = z.preprocess((value) => {
 }, z.boolean());
 
 const envSchema = z.object({
-  PORT: z.coerce.number().int().positive().default(3000),
+  PORT: z.coerce.number().int().positive().default(10000),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   WHATSAPP_PROVIDER: z.enum(["twilio", "360dialog", "mock"]).default("mock"),
   REDIS_URL: z.string().optional(),

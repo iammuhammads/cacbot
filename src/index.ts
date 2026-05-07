@@ -9,8 +9,8 @@ async function main() {
     host: "0.0.0.0",
     port: env.PORT
   });
-  console.log(`[server] 🚀 CAC Bot is live at ${address}`);
-  console.log(`[server] Webhook endpoint: ${address}/webhooks/whatsapp`);
+  console.log(`[server] 🚀 CAC Bot is live and listening on 0.0.0.0:${env.PORT}`);
+  console.log(`[server] Health check: ${address}/health`);
 }
 
 main().catch((error) => {
