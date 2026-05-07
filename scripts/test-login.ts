@@ -21,7 +21,8 @@ async function testLogin() {
     deleteFile: async () => {},
     connect: async () => {} 
   } as any;
-  const service = new CacAutomationService(env, resolver, mockStorage);
+  const mockAdl = { decide: async () => ({ action: "CONTINUE" }) } as any;
+  const service = new CacAutomationService(env, resolver, mockStorage, mockAdl);
   const browser = await chromium.launch({ headless: env.CAC_HEADLESS });
   const page = await browser.newPage();
 

@@ -350,10 +350,19 @@ function extractIsoDate(text: string): string | undefined {
 }
 
 function extractBusinessNames(text: string): string[] {
-  return text
-    .split(/\n|,/)
+  // Elite: Look for phrases followed by "ltd", "limited", "inc", "nigeria", etc.
+  // Or just clean up the input if it's short
+  const noise = ["lets go with", "i want", "use", "the name is", "names are", "how about"];
+  let cleaned = text.toLowerCase();
+  for (const n of noise) {
+    cleaned = cleaned.replace(n, "");
+  }
+
+  return cleaned
+    .split(/\n|,|and|or/)
     .map((value) => value.trim())
-    .filter((value) => value.length > 2)
+    .filter((value) => value.length > 3)
+    .map(v => v.replace(/^["']|["']$/g, "")) // Remove quotes
     .slice(0, 3);
 }
 
@@ -598,22 +607,35 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
   ): Promise<IntakeDecision> {
     const candidateData: Partial<RegistrationData> = {};
     const validation = validateRegistrationData(session.collectedData);
+    const fieldConfidence: Record<string, number> = {};
     
     // Simple heuristic extraction
-    const detected = detectRegistrationType(inboundText);
-    if (detected) {
-      candidateData.registrationType = detected;
-      session.collectedData.registrationType = detected; // Force update for immediate feedback
+    const regType = detectRegistrationType(inboundText);
+    if (regType) {
+      candidateData.registrationType = regType;
+      session.collectedData.registrationType = regType; 
+      fieldConfidence.registrationType = 1;
     }
     
     const email = extractEmail(inboundText);
-    if (email) candidateData.clientEmail = email;
+    if (email) {
+      candidateData.clientEmail = email;
+      fieldConfidence.clientEmail = 1;
+    }
+
+    const names = extractBusinessNames(inboundText);
+    if (names.length > 0 && session.collectedData.registrationType) {
+       candidateData.businessNameOptions = names;
+       fieldConfidence.businessNameOptions = 1;
+    }
 
     let reply = "";
     
     if (session.collectedData.registrationType) {
       if (inboundText.toLowerCase().includes("how are you") || inboundText.toLowerCase().includes("hello")) {
         reply = "I am doing well, thank you! Ready to continue with your " + session.collectedData.registrationType.replace(/_/g, ' ').toLowerCase() + " registration. What names are we considering for this entity?";
+      } else if (names.length > 0) {
+        reply = `I've noted your name options: ${names.join(", ")}. \n\nWhat is the main business address? (Please include the state and LGA).`;
       } else {
         reply = `I've noted that we are registering a ${session.collectedData.registrationType.replace(/_/g, ' ').toLowerCase()}. What name options are you considering for it? It's best to have at least two in mind.`;
       }
@@ -629,7 +651,7 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
       intent: "DATA_INPUT",
       reply: reply,
       candidateData,
-      fieldConfidence: detected ? { registrationType: 1 } : {},
+      fieldConfidence,
       missingFields: validation.missingFields,
       readyForSubmission: false,
       stateSuggestion: "COLLECTING_DATA",
