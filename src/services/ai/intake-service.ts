@@ -359,7 +359,7 @@ function extractBusinessNames(text: string): string[] {
   }
 
   return cleaned
-    .split(/\n|,|and|or/)
+    .split(/\n|,|\band\b|\bor\b/)
     .map((value) => value.trim())
     .filter((value) => value.length > 3)
     .map(v => v.replace(/^["']|["']$/g, "")) // Remove quotes
@@ -391,6 +391,12 @@ export class RegistrationIntakeService {
       logger.info("OpenAI Key Detected. Initializing GPT-4o...");
       this.openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
     }
+
+    // Safety: Correct legacy/invalid model names from env
+    if (this.env.ANTHROPIC_MODEL === "claude-3-5-sonnet-20241022" || this.env.ANTHROPIC_MODEL === "claude-3-5-sonnet-20240620") {
+      (this.env as any).ANTHROPIC_MODEL = "claude-sonnet-4-6";
+      logger.warn(`Detected standard ANTHROPIC_MODEL. Reverting to user-specific 'claude-sonnet-4-6' for compatibility.`);
+    }
   }
 
   async processTurn(
@@ -398,26 +404,28 @@ export class RegistrationIntakeService {
     inboundText: string,
     profileName?: string
   ): Promise<IntakeDecision> {
-    try {
-      if (this.anthropic) {
+    // 1. Attempt primary AI (Claude)
+    if (this.anthropic) {
+      try {
         logger.info(`Routing to Claude (${this.env.ANTHROPIC_MODEL})...`, { sessionId: session.id });
         return await this.processWithClaude(session, inboundText, profileName);
+      } catch (err: any) {
+        logger.error("Claude/Anthropic failed - attempting OpenAI fallback", { error: err.message, sessionId: session.id });
       }
-    } catch (err) {
-      logger.error("Anthropic/Claude failed", { error: err, sessionId: session.id });
     }
 
+    // 2. Attempt fallback AI (OpenAI)
     if (this.openai) {
       try {
         logger.info("Routing to OpenAI fallback...", { sessionId: session.id });
         return await this.processWithOpenAI(session, inboundText, profileName);
-      } catch (err) {
-        logger.error("OpenAI failed", { error: err, sessionId: session.id });
+      } catch (err: any) {
+        logger.error("OpenAI fallback failed too", { error: err.message, sessionId: session.id });
       }
     }
 
+    // 3. Last resort: Heuristic
     console.warn("[AI] All AI providers failed. Using HEURISTIC fallback.");
-
     return this.processHeuristically(session, inboundText, profileName);
   }
 
@@ -552,7 +560,8 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
 
     logger.info(`Processing turn with model: "${model}"`, { sessionId: session.id });
 
-    const response = await client.messages.create({
+    try {
+      const response = await client.messages.create({
       model: model,
       max_tokens: 1024,
       system: systemPrompt,
@@ -568,6 +577,19 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
         ...recentTurns.map((t) => ({ role: t.role as "user" | "assistant", content: t.content })),
         { role: "user", content: inboundText }
       ]
+    }).catch(err => {
+       logger.error("Claude Message Creation Failed", { 
+          error: err.message, 
+          model,
+          turns: recentTurns.length,
+          sessionId: session.id 
+       });
+       throw err;
+    });
+
+    logger.info("Claude Response Received", { 
+       contentTypes: response.content.map(c => c.type),
+       sessionId: session.id 
     });
 
     const toolUse = response.content.find((c) => c.type === "tool_use");
@@ -598,6 +620,10 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
       ...parsed,
       candidateData: compact(parsed.candidateData)
     };
+    } catch (err) {
+      logger.error("Claude Processing Exception", { error: (err as any).message, sessionId: session.id });
+      throw err;
+    }
   }
 
   private async processHeuristically(
