@@ -895,7 +895,11 @@ export function renderChatPage(env: any): string {
             }
           } else {
             hideTyping();
-            addMessage('Error: ' + (data.error || 'Unknown error'), 'bot');
+            let errMsg = 'Unknown error';
+            if (data.error) {
+               errMsg = typeof data.error === 'object' ? (data.error.message || JSON.stringify(data.error)) : String(data.error);
+            }
+            addMessage('Error: ' + errMsg, 'bot');
           }
         } catch (err) {
           addMessage('Network error. Please try again.', 'bot');

@@ -352,7 +352,7 @@ export async function buildApp(env: Env) {
       request.log.error(err);
       return reply.code(500).send({ 
         ok: false, 
-        error: err instanceof Error ? err.message : String(err),
+        error: err instanceof Error ? err.message : (typeof err === 'object' ? JSON.stringify(err) : String(err)),
         tip: "Check your Render Environment Variables for ANTHROPIC_API_KEY"
       });
     }

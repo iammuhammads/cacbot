@@ -393,9 +393,9 @@ export class RegistrationIntakeService {
     }
 
     // Safety: Correct legacy/invalid model names from env
-    if (this.env.ANTHROPIC_MODEL === "claude-3-5-sonnet-20241022" || this.env.ANTHROPIC_MODEL === "claude-3-5-sonnet-20240620") {
+    if (this.env.ANTHROPIC_MODEL === "claude-sonnet-4.6" || this.env.ANTHROPIC_MODEL === "claude-3-5-sonnet-20240620" || this.env.ANTHROPIC_MODEL === "claude-3-sonnet-20240229" || this.env.ANTHROPIC_MODEL === "claude-3-5-sonnet-latest") {
       (this.env as any).ANTHROPIC_MODEL = "claude-sonnet-4-6";
-      logger.warn(`Detected standard ANTHROPIC_MODEL. Reverting to user-specific 'claude-sonnet-4-6' for compatibility.`);
+      logger.warn(`Detected invalid or deprecated ANTHROPIC_MODEL '${this.env.ANTHROPIC_MODEL}'. Auto-correcting to 'claude-sonnet-4-6'.`);
     }
   }
 
@@ -591,7 +591,35 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
         ...recentTurns.map((t) => ({ role: t.role as "user" | "assistant", content: t.content })),
         { role: "user", content: inboundText }
       ]
-    }).catch(err => {
+    }).catch(async (err: any) => {
+       // --- 🔄 DYNAMIC MODEL AUTO-CORRECTION ---
+       const errMsg = err.message || '';
+       const match = errMsg.match(/Did you mean ([a-zA-Z0-9.-]+)\?/);
+       if (err.status === 404 && match && match[1]) {
+         const suggestedModel = match[1];
+         logger.warn(`Claude Model 404 Auto-Correction: Retrying with suggested model '${suggestedModel}' instead of '${model}'...`, { sessionId: session.id });
+         // Update the env for future requests in this container instance
+         (this.env as any).ANTHROPIC_MODEL = suggestedModel;
+         
+         return await client.messages.create({
+            model: suggestedModel,
+            max_tokens: 1024,
+            system: systemPrompt,
+            tools: [
+              {
+                name: "record_intake_decision",
+                description: "Record the structured decision and extracted data from the user turn.",
+                input_schema: llmResponseJsonSchema as any
+              }
+            ],
+            tool_choice: validation.missingFields.length > 0 ? { type: "auto" } : "none" as any,
+            messages: [
+              ...recentTurns.map((t) => ({ role: t.role as "user" | "assistant", content: t.content })),
+              { role: "user", content: inboundText }
+            ]
+         });
+       }
+       
        logger.error("Claude Message Creation Failed", { 
           error: err.message, 
           model,
