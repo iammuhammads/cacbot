@@ -137,6 +137,41 @@ export async function buildApp(env: Env) {
 
   app.get("/health/config", async () => getRuntimeCheckReport(env));
 
+  // Live AI diagnostic — actually calls Claude to verify it works
+  app.get("/health/ai", async () => {
+    const result: Record<string, unknown> = {
+      anthropicKey: env.ANTHROPIC_API_KEY ? `${env.ANTHROPIC_API_KEY.substring(0, 12)}...` : "MISSING",
+      anthropicModel: env.ANTHROPIC_MODEL,
+      timestamp: new Date().toISOString()
+    };
+    try {
+      const testIntake = new RegistrationIntakeService(env);
+      const { EMPTY_REGISTRATION_DATA } = await import("./types/domain.js");
+      const { randomUUID } = await import("node:crypto");
+      const mockSession = {
+        id: randomUUID(),
+        userId: "health-check",
+        state: "COLLECTING_DATA" as any,
+        collectedData: { ...EMPTY_REGISTRATION_DATA, registrationType: "COMPANY" as any },
+        history: [],
+        auditTrail: [],
+        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        behavioralContext: { mode: "CONVERSATIONAL" as any, lastActivityAt: new Date().toISOString(), questionAttempts: {}, userConfusionScore: 0, fieldIntegrity: {} },
+        plan: { currentStepIndex: 1, steps: [] }
+      };
+      const decision = await testIntake.processTurn(mockSession as any, "hello");
+      result.aiStatus = decision.summary?.includes("Heuristic") ? "HEURISTIC_FALLBACK" : "AI_WORKING";
+      result.intent = decision.intent;
+      result.reply = decision.reply?.substring(0, 100);
+      result.summary = decision.summary;
+    } catch (err: any) {
+      result.aiStatus = "ERROR";
+      result.error = err.message;
+    }
+    return result;
+  });
+
   app.post("/api/leads", async (request, reply) => {
     const body = (request.body ?? {}) as { email?: string };
     if (!body.email) return reply.code(400).send({ error: "Email is required." });

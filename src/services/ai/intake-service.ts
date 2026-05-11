@@ -404,14 +404,19 @@ export class RegistrationIntakeService {
     inboundText: string,
     profileName?: string
   ): Promise<IntakeDecision> {
+    let lastError = "";
+
     // 1. Attempt primary AI (Claude)
     if (this.anthropic) {
       try {
         logger.info(`Routing to Claude (${this.env.ANTHROPIC_MODEL})...`, { sessionId: session.id });
         return await this.processWithClaude(session, inboundText, profileName);
       } catch (err: any) {
-        logger.error("Claude/Anthropic failed - attempting OpenAI fallback", { error: err.message, sessionId: session.id });
+        lastError = `Claude: ${err.message || String(err)}`;
+        logger.error("Claude/Anthropic failed - attempting OpenAI fallback", { error: lastError, sessionId: session.id });
       }
+    } else {
+      lastError = "Claude: client not initialized (no ANTHROPIC_API_KEY)";
     }
 
     // 2. Attempt fallback AI (OpenAI)
@@ -420,13 +425,22 @@ export class RegistrationIntakeService {
         logger.info("Routing to OpenAI fallback...", { sessionId: session.id });
         return await this.processWithOpenAI(session, inboundText, profileName);
       } catch (err: any) {
+        lastError += ` | OpenAI: ${err.message || String(err)}`;
         logger.error("OpenAI fallback failed too", { error: err.message, sessionId: session.id });
       }
     }
 
-    // 3. Last resort: Heuristic
-    console.warn("[AI] All AI providers failed. Using HEURISTIC fallback.");
-    return this.processHeuristically(session, inboundText, profileName);
+    // 3. Last resort: Heuristic (with error surfacing for debugging)
+    console.warn(`[AI] All AI providers failed. Using HEURISTIC fallback. Reason: ${lastError}`);
+    const result = await this.processHeuristically(session, inboundText, profileName);
+    
+    // Surface error in reply during debugging (prefix it)
+    if (lastError) {
+      result.reply = `[AI DEBUG: ${lastError.substring(0, 150)}]\n\n${result.reply}`;
+      result.summary = `Heuristic fallback. Error: ${lastError.substring(0, 200)}`;
+    }
+    
+    return result;
   }
 
   private async processWithOpenAI(

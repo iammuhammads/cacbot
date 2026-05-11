@@ -381,6 +381,19 @@ export class RegistrationOrchestrator {
     }
 
     const inboundText = message.text.trim() || `[${message.media.length} document(s) uploaded]`;
+
+    // --- 🔄 SESSION RESET COMMAND ---
+    if (/^(reset|start\s*over|new\s*registration|clear)$/i.test(inboundText)) {
+      if (session.state !== "NEW") {
+        this.setState(session, "COMPLETED", "user_reset");
+        this.appendAudit(session, "client", "session_reset_by_user");
+        await this.persist(session);
+      }
+      // Create a brand new session
+      session = this.createSession(message);
+      await this.persist(session);
+      return "Your previous session has been cleared. Let's start fresh!\n\nHello! I'm Mr. Chinedu, your corporate legal assistant. I can help you register a Business Name, a Company, or Incorporated Trustees.\n\nWhich one are you looking to start today?";
+    }
     
     // --- 💳 FLEXIBLE PAYMENT DETECTION ---
     const isAwaitingPayment = session.state === "AWAITING_PAYMENT";
