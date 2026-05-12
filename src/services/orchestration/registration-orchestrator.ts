@@ -829,6 +829,10 @@ export class RegistrationOrchestrator {
     return this.store.getById(sessionId);
   }
 
+  async getActiveSessionByUser(userId: string): Promise<SessionRecord | null> {
+    return this.store.getActiveByUser(userId);
+  }
+
   async moveToManualReview(sessionId: string): Promise<boolean> {
     const session = await this.store.getById(sessionId);
     if (!session) {

@@ -340,7 +340,7 @@ export async function buildApp(env: Env) {
     
     try {
       const response = await orchestrator.handleWebChat(userId, body.text);
-      const session = await orchestrator.getSession(userId);
+      const session = await orchestrator.getActiveSessionByUser(userId);
       return { 
         ok: true, 
         text: response,

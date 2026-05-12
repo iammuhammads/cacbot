@@ -356,20 +356,20 @@ export function renderChatPage(env: any): string {
         display: flex;
         height: 100vh;
         overflow: hidden;
-        background: var(--bg-main);
-        background-image: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.03) 0%, transparent 60%);
+        background: #fafafa;
         color: var(--text-main);
       }
 
       /* Sidebar */
       .sidebar {
-        width: 280px;
-        background: var(--bg-sidebar);
-        border-right: 1px solid var(--border);
+        width: 320px;
+        background: #ffffff;
+        border-right: 1px solid #e5e7eb;
         display: flex;
         flex-direction: column;
-        padding: 24px 16px;
+        padding: 24px 20px;
         z-index: 10;
+        box-shadow: 1px 0 10px rgba(0,0,0,0.02);
       }
 
       .logo {
@@ -425,19 +425,31 @@ export function renderChatPage(env: any): string {
       .history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
       .history-item {
-        padding: 12px 16px;
-        border-radius: 10px;
-        color: var(--text-muted);
-        font-size: 0.9rem;
+        padding: 14px 16px;
+        border-radius: 12px;
+        color: #475569;
+        font-size: 0.95rem;
+        font-weight: 500;
         cursor: pointer;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        display: flex;
+        align-items: center;
+        gap: 12px;
         transition: all 0.2s;
         border: 1px solid transparent;
       }
       .history-item:hover {
-        background: rgba(255,255,255,0.03);
-        color: white;
-        border-color: rgba(255,255,255,0.05);
+        background: #f1f5f9;
+        color: #0f172a;
+      }
+      .history-item svg {
+        color: #94a3b8;
+      }
+      .history-time {
+        display: block;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        font-weight: 400;
+        margin-top: 2px;
       }
 
       .sidebar-footer {
@@ -464,14 +476,50 @@ export function renderChatPage(env: any): string {
       }
 
       .chat-header {
-        padding: 24px 40px;
+        padding: 20px 40px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(10, 13, 22, 0.8);
-        backdrop-filter: blur(16px);
-        border-bottom: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid #e5e7eb;
         position: sticky; top: 0; z-index: 50;
+      }
+      
+      .header-title-container {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .ai-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+      }
+      .ai-identity {
+        display: flex;
+        flex-direction: column;
+      }
+      .chat-title { font-weight: 600; color: #0f172a; font-size: 1.1rem; }
+      .chat-subtitle { font-size: 0.85rem; color: #64748b; font-weight: 500; }
+      
+      .secure-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #ecfdf5;
+        color: #059669;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1px solid #a7f3d0;
       }
 
       /* Mobile Sidebar Adjustments */
@@ -506,80 +554,145 @@ export function renderChatPage(env: any): string {
         cursor: pointer;
         margin-right: 12px;
       }
-      .chat-title { font-weight: 600; color: white; font-size: 1.1rem; }
       .bubble {
-        padding: 18px 24px;
-        border-radius: 18px;
+        padding: 16px 20px;
+        border-radius: 16px;
         font-size: 1rem;
-        line-height: 1.55;
-        max-width: 85%;
+        line-height: 1.6;
+        max-width: 70%;
         position: relative;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
       }
       .bot .bubble {
-        background: #f8fafc;
-        color: var(--text-main);
-        border: 1px solid var(--border);
+        background: #f4f4f5;
+        color: #18181b;
+        border: 1px solid #e4e4e7;
         border-top-left-radius: 4px;
       }
       .user .bubble {
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
-        color: #000;
-        font-weight: 500;
+        background: rgba(16, 185, 129, 0.9);
+        color: #ffffff;
+        font-weight: 400;
         border-top-right-radius: 4px;
-        box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.3);
+      }
+      
+      /* Guided Actions */
+      .guided-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+        max-width: 800px;
+      }
+      .action-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        padding: 12px 18px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #334155;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      }
+      .action-card:hover {
+        border-color: #10b981;
+        background: #f8fafc;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04);
       }
 
       /* Input Area Overhaul */
       .input-area {
         padding: 24px 40px 40px;
-        background: linear-gradient(to top, var(--bg-panel) 80%, transparent);
+        background: linear-gradient(to top, #fafafa 80%, transparent);
       }
       .input-box {
         max-width: 860px;
         margin: 0 auto;
-        background: #ffffff;
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid #e5e7eb;
+        border-radius: 24px;
+        padding: 8px 16px;
         display: flex;
         align-items: center;
         gap: 12px;
-        transition: all 0.3s;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
       }
       .input-box:focus-within {
-        border-color: var(--accent);
+        border-color: #10b981;
         background: #ffffff;
-        box-shadow: 0 10px 40px rgba(16, 185, 129, 0.08);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1), 0 10px 30px rgba(0,0,0,0.06);
+        transform: translateY(-2px);
       }
+      .input-icon-btn {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s;
+      }
+      .input-icon-btn:hover { color: #475569; }
+      
       .input-box input {
         flex: 1;
         background: transparent;
         border: none;
-        color: var(--text-main);
+        color: #0f172a;
         font-size: 1rem;
         padding: 12px 4px;
         outline: none;
       }
-      .input-box input::placeholder { color: var(--text-muted); }
+      .input-box input::placeholder { color: #94a3b8; font-weight: 400; }
       
       .send-btn {
-        width: 40px; height: 40px;
-        background: var(--accent);
-        color: #000;
+        width: 44px; height: 44px;
+        background: #10b981;
+        color: #ffffff;
         border: none;
-        border-radius: 10px;
+        border-radius: 50%;
         cursor: pointer;
         display: flex; align-items: center; justify-content: center;
         transition: all 0.2s;
+        box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
       }
       .send-btn:hover {
-        background: white;
+        background: #059669;
         transform: scale(1.05);
       }
       .send-btn:disabled {
-        background: var(--text-faded);
+        background: #cbd5e1;
+        color: #ffffff;
+        box-shadow: none;
         cursor: not-allowed;
+      }
+      
+      .typing-indicator {
+        font-size: 0.9rem;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+      }
+      .spin {
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        100% { transform: rotate(360deg); }
       }
 
       /* Automation Live Terminal */
@@ -663,19 +776,35 @@ export function renderChatPage(env: any): string {
     <!-- Main Chat -->
     <div class="chat-container">
       <div class="chat-header">
-        <div style="display: flex; align-items: center;">
+        <div class="header-title-container">
           <button class="mobile-chat-toggle" onclick="document.querySelector('.sidebar').classList.toggle('active')">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
           </button>
-          <div class="chat-title">Mr. Chinedu AI Agent</div>
+          <div class="ai-avatar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>
+          </div>
+          <div class="ai-identity">
+            <div class="chat-title">Mr. Chinedu</div>
+            <div class="chat-subtitle">CAC Registration Assistant</div>
+          </div>
         </div>
-        <div class="agent-status"><div class="dot"></div> Online</div>
+        <div class="secure-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Secure Session
+        </div>
       </div>
       
       <div class="messages" id="chatBody">
         <div class="message bot">
-          <div class="avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg></div>
-          <div class="bubble">Hello! I am Mr. Chinedu, your Elite Registration Agent. Are you looking to register a Business Name, a Company, or Incorporated Trustees?</div>
+          <div class="ai-avatar" style="width: 32px; height: 32px; border-radius: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg></div>
+          <div class="bubble">Good evening. What would you like to register today?</div>
+        </div>
+        
+        <div class="guided-actions" id="guidedActions">
+          <div class="action-card" onclick="sendGuidedAction('Register Business Name')">Register Business Name</div>
+          <div class="action-card" onclick="sendGuidedAction('Register a Limited Company')">Register a Limited Company</div>
+          <div class="action-card" onclick="sendGuidedAction('File Annual Returns')">File Annual Returns</div>
+          <div class="action-card" onclick="sendGuidedAction('Change Company Directors')">Change Company Directors</div>
         </div>
       </div>
 
@@ -794,17 +923,28 @@ export function renderChatPage(env: any): string {
       renderHistory();
 
       function addMessage(text, role) {
+        // Remove guided actions if user sends a message
+        const guidedActions = document.getElementById('guidedActions');
+        if (guidedActions) guidedActions.remove();
+
         const msg = document.createElement('div');
         msg.className = 'message ' + role;
-        const avatar = document.createElement('div');
-        avatar.className = 'avatar';
-        avatar.innerHTML = role === 'bot' 
-          ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>'
-          : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+        
+        if (role === 'bot') {
+          const avatar = document.createElement('div');
+          avatar.className = 'ai-avatar';
+          avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 8px;';
+          avatar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>';
+          msg.appendChild(avatar);
+        }
+        
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
         bubble.textContent = text;
-        msg.appendChild(avatar);
+        msg.appendChild(bubble);
+        chatBody.appendChild(msg);
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
         msg.appendChild(bubble);
         chatBody.appendChild(msg);
         chatBody.scrollTop = chatBody.scrollHeight;
@@ -814,7 +954,7 @@ export function renderChatPage(env: any): string {
         const msg = document.createElement('div');
         msg.className = 'message bot typing';
         msg.id = 'typing-indicator';
-        msg.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+        msg.innerHTML = '<div class="typing-indicator"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg> Mr. Chinedu is reviewing your filing...</div>';
         chatBody.appendChild(msg);
         chatBody.scrollTop = chatBody.scrollHeight;
       }
@@ -915,6 +1055,12 @@ export function renderChatPage(env: any): string {
         showTyping();
         sendMessage(text);
       });
+
+      function sendGuidedAction(text) {
+        addMessage(text, 'user');
+        showTyping();
+        sendMessage(text);
+      }
     </script>
   </body>
 </html>`;
