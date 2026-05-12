@@ -471,8 +471,39 @@ export function renderChatPage(env: any): string {
         flex: 1;
         display: flex;
         flex-direction: column;
-        background: var(--bg-panel);
+        background: #fafafa;
         position: relative;
+      }
+      
+      .chat-scroll-area {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        scroll-behavior: smooth;
+      }
+      
+      .chat-content {
+        max-width: 48rem;
+        margin: 0 auto;
+        width: 100%;
+        padding: 40px 32px 160px 32px; /* px-8, pt-10, pb-40 */
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        min-height: 100%;
+        transition: padding 0.3s;
+      }
+      
+      /* Fix: center early chat state */
+      .chat-content.early-state {
+        justify-content: center;
+        padding-top: 0;
+        padding-bottom: 120px;
+      }
+
+      @media (min-width: 768px) {
+        .chat-content { padding-left: 64px; padding-right: 64px; } /* md:px-16 */
       }
 
       .chat-header {
@@ -536,7 +567,7 @@ export function renderChatPage(env: any): string {
         }
         .sidebar.active { transform: translateX(0); }
         .chat-header { padding: 16px 20px; }
-        .messages { padding: 20px; }
+        .chat-content { padding: 20px 20px 140px 20px; }
         .bubble { padding: 14px 18px; font-size: 0.95rem; }
         .mobile-chat-toggle { display: flex !important; }
       }
@@ -554,6 +585,20 @@ export function renderChatPage(env: any): string {
         cursor: pointer;
         margin-right: 12px;
       }
+      .messages {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        width: 100%;
+      }
+      .message {
+        display: flex;
+        gap: 16px;
+      }
+      .message.user {
+        justify-content: flex-end;
+      }
+      
       .bubble {
         padding: 16px 20px;
         border-radius: 16px;
@@ -605,8 +650,15 @@ export function renderChatPage(env: any): string {
 
       /* Input Area Overhaul */
       .input-area {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
         padding: 24px 40px 40px;
-        background: linear-gradient(to top, #fafafa 80%, transparent);
+        background: linear-gradient(to top, rgba(250,250,250,0.95) 60%, transparent);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        z-index: 40;
       }
       .input-box {
         max-width: 860px;
@@ -794,17 +846,21 @@ export function renderChatPage(env: any): string {
         </div>
       </div>
       
-      <div class="messages" id="chatBody">
-        <div class="message bot">
-          <div class="ai-avatar" style="width: 32px; height: 32px; border-radius: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg></div>
-          <div class="bubble">Good evening. What would you like to register today?</div>
-        </div>
-        
-        <div class="guided-actions" id="guidedActions">
-          <div class="action-card" onclick="sendGuidedAction('Register Business Name')">Register Business Name</div>
-          <div class="action-card" onclick="sendGuidedAction('Register a Limited Company')">Register a Limited Company</div>
-          <div class="action-card" onclick="sendGuidedAction('File Annual Returns')">File Annual Returns</div>
-          <div class="action-card" onclick="sendGuidedAction('Change Company Directors')">Change Company Directors</div>
+      <div class="chat-scroll-area" id="chatScrollArea">
+        <div class="chat-content early-state" id="chatContent">
+          <div class="messages" id="chatBody">
+            <div class="message bot">
+              <div class="ai-avatar" style="width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg></div>
+              <div class="bubble">Good evening. What would you like to register today?</div>
+            </div>
+            
+            <div class="guided-actions" id="guidedActions">
+              <div class="action-card" onclick="sendGuidedAction('Register Business Name')">Register Business Name</div>
+              <div class="action-card" onclick="sendGuidedAction('Register a Limited Company')">Register a Limited Company</div>
+              <div class="action-card" onclick="sendGuidedAction('File Annual Returns')">File Annual Returns</div>
+              <div class="action-card" onclick="sendGuidedAction('Change Company Directors')">Change Company Directors</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -846,8 +902,23 @@ export function renderChatPage(env: any): string {
       const terminalBody = document.getElementById('terminalBody');
       const matrixCanvas = document.getElementById('matrixCanvas');
 
+      const chatScrollArea = document.getElementById('chatScrollArea');
+      const chatContent = document.getElementById('chatContent');
+
       let userId = localStorage.getItem('asbestos_user_id');
       let chatHistory = JSON.parse(localStorage.getItem('asbestos_history') || '[]');
+      let hasStartedConversation = false;
+
+      function updateChatLayout() {
+        // Only run this logic if we haven't already transitioned to ongoing mode
+        if (hasStartedConversation) return;
+        
+        const messageCount = chatBody.querySelectorAll('.message').length;
+        if (messageCount > 1) {
+          chatContent.classList.remove('early-state');
+          hasStartedConversation = true;
+        }
+      }
 
       async function initUser() {
         if (window.Clerk && window.Clerk.user) {
@@ -861,6 +932,9 @@ export function renderChatPage(env: any): string {
               const session = await res.json();
               if (session.history && session.history.length > 0) {
                 chatBody.innerHTML = ''; // Clear defaults
+                const guidedActions = document.getElementById('guidedActions');
+                if (guidedActions) guidedActions.remove();
+                
                 session.history.forEach(turn => {
                   const role = turn.role === 'client' ? 'user' : 'bot';
                   addMessage(turn.text, role);
@@ -871,6 +945,7 @@ export function renderChatPage(env: any): string {
             console.error("Failed to load session:", e); 
           }
         }
+        updateChatLayout();
       }
 
       if (window.Clerk) initUser();
@@ -933,7 +1008,7 @@ export function renderChatPage(env: any): string {
         if (role === 'bot') {
           const avatar = document.createElement('div');
           avatar.className = 'ai-avatar';
-          avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 8px;';
+          avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;';
           avatar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>';
           msg.appendChild(avatar);
         }
@@ -943,20 +1018,29 @@ export function renderChatPage(env: any): string {
         bubble.textContent = text;
         msg.appendChild(bubble);
         chatBody.appendChild(msg);
-        chatBody.scrollTop = chatBody.scrollHeight;
-      }
-        msg.appendChild(bubble);
-        chatBody.appendChild(msg);
-        chatBody.scrollTop = chatBody.scrollHeight;
+        
+        updateChatLayout();
+        chatScrollArea.scrollTop = chatScrollArea.scrollHeight;
       }
 
       function showTyping() {
         const msg = document.createElement('div');
         msg.className = 'message bot typing';
         msg.id = 'typing-indicator';
-        msg.innerHTML = '<div class="typing-indicator"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg> Mr. Chinedu is reviewing your filing...</div>';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'ai-avatar';
+        avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;';
+        avatar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path></svg>';
+        msg.appendChild(avatar);
+
+        const typingBubble = document.createElement('div');
+        typingBubble.className = 'bubble';
+        typingBubble.innerHTML = '<div class="typing-indicator"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg> Mr. Chinedu is reviewing your filing...</div>';
+        msg.appendChild(typingBubble);
+        
         chatBody.appendChild(msg);
-        chatBody.scrollTop = chatBody.scrollHeight;
+        chatScrollArea.scrollTop = chatScrollArea.scrollHeight;
       }
 
       function hideTyping() {
