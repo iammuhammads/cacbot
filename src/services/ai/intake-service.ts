@@ -322,6 +322,23 @@ function compact<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+/**
+ * Recursively converts null values to undefined so Zod optional() validators
+ * don't reject them with "expected string, received null".
+ */
+function stripNulls(obj: unknown): unknown {
+  if (obj === null) return undefined;
+  if (Array.isArray(obj)) return obj.map(stripNulls);
+  if (typeof obj === "object" && obj !== null) {
+    return Object.fromEntries(
+      Object.entries(obj as Record<string, unknown>)
+        .map(([k, v]) => [k, stripNulls(v)])
+        .filter(([, v]) => v !== undefined)
+    );
+  }
+  return obj;
+}
+
 function detectRegistrationType(text: string): RegistrationType | undefined {
   const lower = text.toLowerCase();
   if (lower.includes("business name") || /\bbn\b/.test(lower)) return "BUSINESS_NAME";
@@ -512,7 +529,7 @@ export class RegistrationIntakeService {
       }
     });
 
-    const payload = JSON.parse(response.output_text);
+    const payload = stripNulls(JSON.parse(response.output_text));
     const parsed = llmDecisionSchema.parse(payload);
 
     return {
@@ -655,7 +672,7 @@ The intelligence is hidden. The user only sees a human conversation. Default to 
       };
     }
 
-    const payload = toolUse.input as any;
+    const payload = stripNulls(toolUse.input);
     const parsed = llmDecisionSchema.parse(payload);
 
     return {
